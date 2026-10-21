@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 · 橙刻定制后台</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body style="display:flex;align-items:center;justify-content:center;height:100%">
+  <div class="card" style="width:360px">
+    <h2 style="text-align:center">橙刻定制 · 后台管理</h2>
+    <form id="loginForm">
+      <p><input name="username" placeholder="用户名" style="width:100%" value="admin"></p>
+      <p><input name="password" type="password" placeholder="密码" style="width:100%" value="admin123"></p>
+      <button class="btn btn-primary" id="loginBtn" style="width:100%" type="submit">登 录</button>
+    </form>
+    <p style="color:var(--color-text-secondary);font-size:12px;margin-top:12px;text-align:center">
+      默认账号 admin / admin123
+    </p>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/dialog.js"></script>
+  <script src="js/request.js"></script>
+  <script src="js/form.js"></script>
+  <script>
+    document.getElementById('loginForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      btn.disabled = true;
+      try {
+        const { username, password } = Form.serialize('#loginForm');
+        const data = await http.post('/admin-api/auth/login', { username, password });
+        sessionStorage.setItem('token', data.token);
+        const info = await http.get('/admin-api/auth/info');
+        sessionStorage.setItem('perms', JSON.stringify(info.perms || []));
+        sessionStorage.setItem('nickname', info.nickname || info.username || '');
+        location.href = 'layout.html';
+      } catch (err) {
+        btn.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

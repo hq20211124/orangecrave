@@ -1,0 +1,10 @@
+<view class="container">
+  <view class="card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="goDetail">
+    <view class="row">
+      <text style="font-weight:600;">{{item.spuName}}</text>
+      <text class="price">¥{{item.basePrice}}</text>
+    </view>
+    <view class="muted" style="margin-top:8rpx;">{{item.subTitle}}</view>
+  </view>
+  <view wx:if="{{!list.length}}" class="card muted">暂无商品</view>
+</view>

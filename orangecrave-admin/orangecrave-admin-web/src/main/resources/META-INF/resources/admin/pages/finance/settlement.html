@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>财务对账</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">财务对账</div>
+  <div class="filter-bar">
+    <button class="btn btn-primary" id="search">查询</button>
+    <button class="btn" id="reconcileBtn">对账</button>
+  </div>
+  <div id="table"></div>
+  <div class="card" id="reconcileCard" style="display:none">
+    <h4>对账明细（期望值 vs 微信流水）</h4>
+    <div id="reconcile"></div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/fin/settlement/page',
+      columns: [
+        { field: 'settleDate', title: '结算日期' },
+        { title: '支付口径', render: r => money(r.orderAmount) },
+        { title: '成团口径', render: r => money(r.grouponAmount) },
+        { title: '退款', render: r => money(r.refundAmount) },
+        { title: '净额', render: r => money(r.netAmount) },
+        { field: 'orderCount', title: '订单数' }
+      ]
+    });
+  }
+
+  async function reconcile() {
+    const rows = await http.get('/admin-api/fin/settlement/reconcile');
+    document.getElementById('reconcileCard').style.display = 'block';
+    document.getElementById('reconcile').innerHTML = rows && rows.length ? `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>结算日期</th><th>期望值（系统）</th><th>实际值（微信）</th><th>差异</th></tr></thead>
+          <tbody>${rows.map(r => {
+            const diff = Number(r.diff || 0);
+            const bad = diff !== 0;
+            return `<tr style="${bad ? 'background:#fff1f0;color:#f5222d;font-weight:600' : ''}">
+              <td>${fmtDate(r.settleDate)}</td>
+              <td>${money(r.expected)}</td>
+              <td>${money(r.actual)}</td>
+              <td>${bad ? '<span class="tag tag-red">' + money(r.diff) + '</span>' : money(r.diff)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>` : '<div class="empty">暂无对账数据</div>';
+  }
+
+  document.getElementById('search').onclick = load;
+  document.getElementById('reconcileBtn').onclick = reconcile;
+  load();
+</script>
+</body>
+</html>

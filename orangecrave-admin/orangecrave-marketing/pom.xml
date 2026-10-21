@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.orangecrave</groupId>
+        <artifactId>orangecrave-admin</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>orangecrave-marketing</artifactId>
+    <name>orangecrave-marketing</name>
+    <dependencies>
+        <dependency>
+            <groupId>com.orangecrave</groupId>
+            <artifactId>orangecrave-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.orangecrave</groupId>
+            <artifactId>orangecrave-goods</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.orangecrave</groupId>
+            <artifactId>orangecrave-order</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

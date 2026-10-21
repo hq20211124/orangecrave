@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>经营看板</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">经营看板</div>
+  <div class="stat-grid" id="stats">
+    <div class="stat-card"><div class="num">-</div><div class="label">加载中…</div></div>
+  </div>
+  <div class="card">
+    <h4>品类销售排行</h4>
+    <div id="rank"></div>
+  </div>
+  <div class="card">
+    <h4>近 14 天销售趋势</h4>
+    <div id="trend"></div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  async function load() {
+    const data = await http.get('/admin-api/fin/dashboard/overview');
+
+    const cards = [
+      { label: '今日销售额', value: money(data.todaySales) },
+      { label: '本月销售额', value: money(data.monthSales) },
+      { label: '今日订单数', value: data.todayOrderCount ?? 0 },
+      { label: '客单价', value: money(data.avgOrderAmount) }
+    ];
+    document.getElementById('stats').innerHTML = cards.map(c => `
+      <div class="stat-card">
+        <div class="num">${c.value}</div>
+        <div class="label">${c.label}</div>
+      </div>`).join('');
+
+    const rank = data.categoryRank || [];
+    document.getElementById('rank').innerHTML = rank.length ? rank.map(r => `
+      <div class="detail-row">
+        <div class="k">${r.name ?? '-'}</div>
+        <div class="v">${money(r.amount)}</div>
+      </div>`).join('') : '<div class="empty">暂无数据</div>';
+
+    const trend = await http.get('/admin-api/fin/dashboard/trend');
+    document.getElementById('trend').innerHTML = trend && trend.length ? `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>日期</th><th>销售额</th></tr></thead>
+          <tbody>${trend.map(t => `<tr><td>${t.d}</td><td>${money(t.amount)}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>` : '<div class="empty">暂无数据</div>';
+  }
+
+  load();
+</script>
+</body>
+</html>

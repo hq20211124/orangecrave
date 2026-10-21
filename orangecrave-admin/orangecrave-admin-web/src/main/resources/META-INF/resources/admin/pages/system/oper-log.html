@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>操作日志</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">操作日志</div>
+  <div class="filter-bar">
+    <input id="keyword" placeholder="描述关键字">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/system/oper-log/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'operModule', title: '模块' },
+        { field: 'operType', title: '类型' },
+        { field: 'operDesc', title: '描述' },
+        { field: 'operUserName', title: '操作人' },
+        { field: 'operIp', title: 'IP' },
+        { title: '结果', render: r => r.status === 1 ? '<span class="tag tag-green">成功</span>' : '<span class="tag tag-red">失败</span>' },
+        { title: '快照', render: r => (r.beforeData || r.afterData) ? '<span class="tag tag-blue">有</span>' : '-' },
+        { title: '时间', render: r => fmtDate(r.operTime) },
+        { title: '操作', render: r => `<a href="#" onclick="detail(${r.id});return false">详情</a>` }
+      ],
+      query: () => ({ keyword: document.getElementById('keyword').value })
+    });
+  }
+
+  async function detail(id) {
+    const log = await http.get('/admin-api/system/oper-log/' + id);
+    const mask = document.createElement('div');
+    mask.className = 'dialog-mask';
+    mask.innerHTML = `
+      <div class="dialog" style="width:720px">
+        <div class="dialog-header">日志详情</div>
+        <div class="dialog-body">
+          <div class="detail-row"><div class="k">方法</div><div class="v">${esc(log.method) || '-'}</div></div>
+          <div class="detail-row"><div class="k">URL</div><div class="v">${esc(log.requestUrl) || '-'}</div></div>
+          <div class="detail-row"><div class="k">参数</div><div class="v">${esc(log.requestParam) || '-'}</div></div>
+          <div class="detail-row"><div class="k">改前</div><div class="v">${esc(log.beforeData) || '-'}</div></div>
+          <div class="detail-row"><div class="k">改后</div><div class="v">${esc(log.afterData) || '-'}</div></div>
+        </div>
+        <div class="dialog-footer"><button class="btn" data-act="close">关闭</button></div>
+      </div>`;
+    document.body.appendChild(mask);
+    mask.querySelector('[data-act=close]').onclick = () => mask.remove();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

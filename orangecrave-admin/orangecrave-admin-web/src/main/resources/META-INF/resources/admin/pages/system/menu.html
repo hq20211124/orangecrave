@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>菜单管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">菜单管理</div>
+  <div class="filter-bar">
+    <button class="btn btn-primary" id="search">刷新</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const MENU_TYPE = {
+    1: { text: '目录', cls: 'tag-blue' },
+    2: { text: '菜单', cls: 'tag-green' },
+    3: { text: '按钮', cls: 'tag-orange' }
+  };
+
+  function typeTag(type) {
+    const t = MENU_TYPE[type] || { text: '未知', cls: 'tag-gray' };
+    return `<span class="tag ${t.cls}">${t.text}</span>`;
+  }
+
+  // 手写递归渲染菜单树
+  function renderRows(nodes, depth) {
+    if (!nodes || nodes.length === 0) return '';
+    return nodes.map(node => {
+      const indent = depth > 0 ? '&nbsp;&nbsp;'.repeat(depth) + '└ ' : '';
+      const row = `<tr>
+        <td>${node.id ?? ''}</td>
+        <td>${indent}${node.menuName ?? ''}</td>
+        <td>${typeTag(node.menuType)}</td>
+        <td>${node.path ?? ''}</td>
+        <td>${node.permKey ?? ''}</td>
+        <td>${node.sort ?? ''}</td>
+        <td><button class="btn btn-link" onclick="remove(${node.id})">删除</button></td>
+      </tr>`;
+      return row + renderRows(node.children, depth + 1);
+    }).join('');
+  }
+
+  async function load() {
+    const container = document.getElementById('table');
+    container.innerHTML = '<div class="loading">加载中…</div>';
+    const tree = await http.get('/admin-api/system/menu/tree');
+    if (!tree || tree.length === 0) {
+      container.innerHTML = '<div class="empty">暂无数据</div>';
+      return;
+    }
+    container.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>ID</th><th>菜单名称</th><th>类型</th><th>路径</th><th>权限标识</th><th>排序</th><th>操作</th>
+          </tr></thead>
+          <tbody>${renderRows(tree, 0)}</tbody>
+        </table>
+      </div>`;
+  }
+
+  async function remove(id) {
+    if (!await Dialog.confirm('确认删除该菜单？此操作会记入操作日志。', '删除菜单')) return;
+    await http.del('/admin-api/system/menu/' + id);
+    Dialog.toast('已删除');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+<view class="container">
+  <view class="card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="goDetail">
+    <view class="row">
+      <text>{{item.orderNo}}</text>
+      <text class="tag">{{item.statusText}}</text>
+    </view>
+    <view class="row" style="margin-top:12rpx;">
+      <text class="muted">{{item.createTime}}</text>
+      <text class="price">¥{{item.payAmount}}</text>
+    </view>
+  </view>
+  <view wx:if="{{!list.length}}" class="card muted">还没有订单</view>
+</view>

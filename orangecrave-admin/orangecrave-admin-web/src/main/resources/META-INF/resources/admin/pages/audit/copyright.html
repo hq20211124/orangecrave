@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>版权承诺</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">版权承诺</div>
+  <div class="filter-bar">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const BIZ = { 1: '定制图', 2: '作品', 3: '头像' };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/aud/promise/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'userId', title: '用户ID' },
+        { title: '业务类型', render: r => BIZ[r.bizType] || r.bizType || '-' },
+        { field: 'bizId', title: '业务ID' },
+        { field: 'promiseVersion', title: '承诺版本' },
+        { field: 'ip', title: 'IP' },
+        { title: '创建时间', render: r => fmtDate(r.createTime) }
+      ],
+      query: () => ({})
+    });
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

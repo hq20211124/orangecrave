@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>品类管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">品类管理</div>
+  <div class="filter-bar">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div class="card" id="tree">加载中…</div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const esc = s => String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+  // 后端 /tree 当前只返回根节点，这里再取一次扁平 /list 在前端组装完整层级。
+  async function load() {
+    const container = document.getElementById('tree');
+    container.innerHTML = '<div class="loading">加载中…</div>';
+    const [tree, flat] = await Promise.all([
+      http.get('/admin-api/pms/category/tree'),
+      http.get('/admin-api/pms/category/list')
+    ]);
+    const roots = buildTree(tree, flat);
+    container.innerHTML = roots.length ? renderNodes(roots, 0) : '<div class="empty">暂无数据</div>';
+  }
+
+  function buildTree(tree, flat) {
+    const map = {};
+    flat.forEach(n => { map[n.id] = Object.assign({}, n, { children: [] }); });
+    flat.forEach(n => {
+      const node = map[n.id];
+      if (n.parentId && map[n.parentId]) map[n.parentId].children.push(node);
+    });
+    const rootIds = (tree || []).map(n => n.id);
+    return flat
+      .filter(n => map[n.id] && (rootIds.includes(n.id) || !n.parentId || !map[n.parentId]))
+      .map(n => map[n.id]);
+  }
+
+  function renderNodes(nodes, level) {
+    return (nodes || []).map(n => `
+      <div class="detail-row" style="padding-left:${level * 24}px">
+        <div class="k" style="width:auto;min-width:160px">
+          ${level > 0 ? '└ ' : ''}<strong>${n.categoryName}</strong>
+        </div>
+        <div class="v">
+          排序 ${n.sort == null ? '-' : n.sort} ·
+          ${n.status === 1 ? '<span class="tag tag-green">启用</span>' : '<span class="tag tag-gray">停用</span>'}
+          <button class="btn-link" onclick="del(${n.id}, '${esc(n.categoryName)}')">删除</button>
+        </div>
+      </div>` + renderNodes(n.children, level + 1)).join('');
+  }
+
+  async function del(id, name) {
+    if (!await Dialog.confirm(`确认删除品类「${name}」？此操作会记入操作日志。`, '删除品类')) return;
+    await http.del('/admin-api/pms/category/' + id);
+    Dialog.toast('已删除');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

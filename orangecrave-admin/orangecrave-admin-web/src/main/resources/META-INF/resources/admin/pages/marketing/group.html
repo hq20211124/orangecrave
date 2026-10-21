@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>拼团管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">拼团管理</div>
+  <div class="filter-bar">
+    <select id="status">
+      <option value="">全部状态</option>
+      <option value="1">拼团中</option>
+      <option value="2">已成团</option>
+      <option value="3">拼团失败</option>
+    </select>
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+
+  <div class="card" id="membersCard" style="display:none">
+    <h4>团成员 <span id="membersTitle"></span></h4>
+    <div id="members"></div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const GROUP_STATUS = {
+    1: { text: '拼团中', cls: 'tag-orange' },
+    2: { text: '已成团', cls: 'tag-green' },
+    3: { text: '拼团失败', cls: 'tag-red' }
+  };
+  const MEMBER_STATUS = { 1: '已加入', 2: '已退出' };
+
+  function statusTag(status) {
+    const s = GROUP_STATUS[status] || { text: '未知', cls: 'tag-gray' };
+    return `<span class="tag ${s.cls}">${s.text}</span>`;
+  }
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/mkt/group/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'activityId', title: '活动ID' },
+        { field: 'leaderUserId', title: '团长用户ID' },
+        { title: '进度', render: r => `${r.currentSize ?? 0} / ${r.targetSize ?? 0}` },
+        { title: '状态', render: r => statusTag(r.status) },
+        { title: '模拟成团', render: r => r.isSimulated === 1 ? '是' : '否' },
+        { title: '过期时间', render: r => fmtDate(r.expireTime) },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="showMembers(${r.id})">成员</button> ` +
+          (r.status === 1
+            ? `<button class="btn-link" onclick="forceSuccess(${r.id})">强制成团</button> ` +
+              `<button class="btn-link" onclick="forceFail(${r.id})">强制失败</button>`
+            : '') }
+      ],
+      query: () => ({ status: document.getElementById('status').value })
+    });
+  }
+
+  async function showMembers(id) {
+    const members = await http.get('/admin-api/mkt/group/' + id + '/members');
+    const card = document.getElementById('membersCard');
+    card.style.display = '';
+    document.getElementById('membersTitle').textContent = '# ' + id;
+    if (!members || members.length === 0) {
+      document.getElementById('members').innerHTML = '<div class="empty">暂无成员</div>';
+      return;
+    }
+    document.getElementById('members').innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>用户ID</th><th>订单ID</th><th>是否团长</th><th>虚拟成员</th><th>加入时间</th><th>状态</th></tr></thead>
+          <tbody>${members.map(m => `
+            <tr>
+              <td>${m.userId ?? '-'}</td>
+              <td>${m.orderId ?? '-'}</td>
+              <td>${m.isLeader === 1 ? '是' : '否'}</td>
+              <td>${m.isVirtual === 1 ? '是' : '否'}</td>
+              <td>${fmtDate(m.joinTime)}</td>
+              <td>${MEMBER_STATUS[m.status] || (m.status ?? '-')}</td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  }
+
+  async function forceSuccess(id) {
+    if (!await Dialog.confirm('确认强制成团（模拟成团）？此操作会记入操作日志。', '强制成团')) return;
+    await http.post('/admin-api/mkt/group/' + id + '/force-success');
+    Dialog.toast('已强制成团');
+    load();
+  }
+
+  async function forceFail(id) {
+    if (!await Dialog.confirm('确认强制失败并退款？此操作会记入操作日志。', '强制失败')) return;
+    await http.post('/admin-api/mkt/group/' + id + '/force-fail');
+    Dialog.toast('已强制失败');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

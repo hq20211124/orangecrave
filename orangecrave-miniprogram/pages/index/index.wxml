@@ -1,0 +1,28 @@
+<view class="container">
+  <view class="card">
+    <view class="row">
+      <text style="font-weight:600;font-size:34rpx;">橙刻定制</text>
+      <text class="muted" bindtap="goMy">我的</text>
+    </view>
+    <view class="muted" style="margin-top:8rpx;">自印周边 · 小卡 / 亚克力 / 手机壳 / 卡册</view>
+  </view>
+
+  <view class="card">
+    <view style="font-weight:600;margin-bottom:12rpx;">系列</view>
+    <view class="muted">{{series.length ? '' : '暂无系列'}}</view>
+    <view wx:for="{{series}}" wx:key="id" style="padding:8rpx 0;">{{item.seriesName}} <text class="muted">{{item.ipName}}</text></view>
+  </view>
+
+  <view class="card">
+    <view class="row" style="margin-bottom:12rpx;">
+      <text style="font-weight:600;">热门商品</text>
+      <text class="muted" bindtap="goOrders">我的订单</text>
+    </view>
+    <view wx:for="{{spus}}" wx:key="id" class="row" style="padding:16rpx 0;border-top:1rpx solid #f0f0f0;"
+          data-id="{{item.id}}" bindtap="goGoods">
+      <text>{{item.spuName}}</text>
+      <text class="price">¥{{item.basePrice}}</text>
+    </view>
+    <view wx:if="{{!spus.length}}" class="muted">暂无商品（请确认后台已启动并执行 seed）</view>
+  </view>
+</view>

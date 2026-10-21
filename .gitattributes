@@ -1,0 +1,12 @@
+# 统一换行符：源码与脚本一律 LF，避免 Linux 上执行失败
+* text=auto eol=lf
+
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.java text eol=lf
+*.md text eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

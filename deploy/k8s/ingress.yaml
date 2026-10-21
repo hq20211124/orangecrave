@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: orangecrave-admin
+  namespace: orangecrave
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: admin.orangecrave.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: orangecrave-admin
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - admin.orangecrave.example.com
+      secretName: orangecrave-tls

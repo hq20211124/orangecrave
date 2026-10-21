@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>订单详情</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">订单详情</div>
+  <div class="card" id="info">加载中…</div>
+  <div class="card">
+    <h4>明细</h4>
+    <div id="items"></div>
+  </div>
+  <div class="card">
+    <h4>状态流转时间线</h4>
+    <ul class="timeline" id="timeline"></ul>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const id = new URLSearchParams(location.search).get('id');
+
+  async function load() {
+    const order = await http.get('/admin-api/oms/order/' + id);
+    document.getElementById('info').innerHTML = `
+      <div class="detail-row"><div class="k">订单号</div><div class="v">${order.orderNo}</div></div>
+      <div class="detail-row"><div class="k">状态</div><div class="v">${orderStatusTag(order.status)}</div></div>
+      <div class="detail-row"><div class="k">类型</div><div class="v">${order.orderType}</div></div>
+      <div class="detail-row"><div class="k">商品金额</div><div class="v">${money(order.totalAmount)}</div></div>
+      <div class="detail-row"><div class="k">优惠</div><div class="v">-${money(order.discountAmount)}</div></div>
+      <div class="detail-row"><div class="k">实付</div><div class="v">${money(order.payAmount)}</div></div>
+      <div class="detail-row"><div class="k">运费</div><div class="v">${money(order.freightAmount)}</div></div>
+      <div class="detail-row"><div class="k">付款时间</div><div class="v">${fmtDate(order.payTime)}</div></div>
+      <div class="detail-row"><div class="k">地址快照</div><div class="v">${esc(order.receiverSnapshot) || '-'}</div></div>`;
+
+    const items = await http.get('/admin-api/oms/order/' + id + '/items');
+    document.getElementById('items').innerHTML = items.map(it => `
+      <div class="detail-row">
+        <div class="k">${it.goodsName}</div>
+        <div class="v">${it.skuSpec} × ${it.qty} = ${money(it.totalPrice)}</div>
+      </div>`).join('') || '<div class="empty">无明细</div>';
+
+    const logs = await http.get('/admin-api/oms/order/' + id + '/timeline');
+    document.getElementById('timeline').innerHTML = logs.map(l => `
+      <li>
+        ${l.fromStatus == null ? '创建' : (ORDER_STATUS[l.fromStatus]?.text || l.fromStatus)}
+        → ${ORDER_STATUS[l.toStatus]?.text || l.toStatus}
+        <span class="time">${fmtDate(l.createTime)} · ${esc(l.operatorType)} ${esc(l.remark)}</span>
+      </li>`).join('') || '<li>暂无流转</li>';
+  }
+
+  load();
+</script>
+</body>
+</html>

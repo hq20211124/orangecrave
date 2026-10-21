@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>邀请记录</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">邀请记录</div>
+
+  <div class="filter-bar">
+    <input id="activityId" placeholder="活动ID（可选）">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+
+  <div class="stat-grid" id="stats"></div>
+
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const INVITE_STATUS = {
+    1: { text: '已记录', cls: 'tag-blue' },
+    2: { text: '已生效', cls: 'tag-green' },
+    3: { text: '已失效', cls: 'tag-gray' }
+  };
+
+  function query() {
+    return { activityId: document.getElementById('activityId').value };
+  }
+
+  async function loadStats() {
+    const data = await http.get('/admin-api/mkt/invite/statistics', query());
+    const rate = Number(data.conversionRate ?? 0);
+    document.getElementById('stats').innerHTML = `
+      <div class="stat-card">
+        <div class="num">${data.totalInvites ?? 0}</div>
+        <div class="label">累计邀请</div>
+      </div>
+      <div class="stat-card">
+        <div class="num">${data.effectiveInvites ?? 0}</div>
+        <div class="label">有效邀请</div>
+      </div>
+      <div class="stat-card">
+        <div class="num">${(rate * 100).toFixed(1)}%</div>
+        <div class="label">转化率</div>
+      </div>`;
+  }
+
+  function loadTable() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/mkt/invite/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'activityId', title: '活动ID' },
+        { field: 'inviterUserId', title: '邀请人ID' },
+        { field: 'inviteeUserId', title: '被邀请人ID' },
+        { field: 'orderId', title: '订单ID' },
+        { title: '状态', render: r => {
+          const s = INVITE_STATUS[r.status] || { text: '未知', cls: 'tag-gray' };
+          return `<span class="tag ${s.cls}">${s.text}</span>`;
+        } },
+        { title: '邀请人奖励', render: r => r.inviterRewardGranted === 1 ? '已发' : '未发' },
+        { title: '被邀请人奖励', render: r => r.inviteeRewardGranted === 1 ? '已发' : '未发' },
+        { title: '创建时间', render: r => fmtDate(r.createTime) }
+      ],
+      query
+    });
+  }
+
+  function reload() {
+    loadStats();
+    loadTable();
+  }
+
+  document.getElementById('search').onclick = reload;
+  reload();
+</script>
+</body>
+</html>

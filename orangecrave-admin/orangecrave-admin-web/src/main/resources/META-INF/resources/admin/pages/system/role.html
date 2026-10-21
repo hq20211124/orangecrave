@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>角色权限</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">角色权限</div>
+  <div class="filter-bar">
+    <input id="keyword" placeholder="角色名称 / 标识">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/system/role/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'roleName', title: '角色名称' },
+        { field: 'roleKey', title: '角色标识' },
+        { field: 'remark', title: '备注' },
+        { title: '状态', render: r => r.status === 1
+            ? '<span class="tag tag-green">启用</span>'
+            : '<span class="tag tag-gray">停用</span>' },
+        { title: '操作', render: r =>
+            `<button class="btn btn-link" onclick="assignMenus(${r.id})">设置菜单</button> ` +
+            `<button class="btn btn-link" onclick="remove(${r.id})">删除</button>` }
+      ],
+      query: () => ({ keyword: document.getElementById('keyword').value })
+    });
+  }
+
+  async function assignMenus(id) {
+    const ids = await http.get('/admin-api/system/role/' + id + '/menus');
+    const input = window.prompt('请输入菜单 ID，多个用英文逗号分隔', (ids || []).join(','));
+    if (input === null) return;
+    const menuIds = input.split(',')
+      .map(s => s.trim())
+      .filter(s => s !== '')
+      .map(Number)
+      .filter(n => !isNaN(n));
+    if (!await Dialog.confirm('确认设置该角色的菜单权限？此操作会记入操作日志。', '设置菜单')) return;
+    await http.put('/admin-api/system/role/' + id + '/menus', menuIds);
+    Dialog.toast('菜单权限已设置');
+    load();
+  }
+
+  async function remove(id) {
+    if (!await Dialog.confirm('确认删除该角色？此操作会记入操作日志。', '删除角色')) return;
+    await http.del('/admin-api/system/role/' + id);
+    Dialog.toast('已删除');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

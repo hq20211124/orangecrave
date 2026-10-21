@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>退款流水</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">退款流水</div>
+  <div class="filter-bar">
+    <button class="btn btn-primary" id="search">查询</button>
+    <button class="btn" id="export">导出</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const BIZ_TYPE = { 1: '订单退款', 2: '拼团失败退款', 3: '无料预付款退回', 4: '售后' };
+  const STATUS = { 1: '<span class="tag tag-orange">处理中</span>', 2: '<span class="tag tag-green">成功</span>', 3: '<span class="tag tag-red">失败</span>' };
+  // 03 篇 §3.3 强制退款两段式：待复核的申请还没生成退款，钱不动
+  const REVIEW = { 1: '<span class="tag tag-orange">待财务复核</span>', 2: '<span class="tag tag-blue">复核通过</span>', 3: '<span class="tag tag-gray">复核驳回</span>' };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/fin/refund/page',
+      columns: [
+        { field: 'refundNo', title: '退款单号' },
+        { title: '类型', render: r => BIZ_TYPE[r.bizType] || r.bizType || '-' },
+        { field: 'orderId', title: '关联订单' },
+        { field: 'userId', title: '用户' },
+        { title: '金额', render: r => money(r.amount) },
+        { title: '渠道', render: r => r.channel === 1 ? '微信原路退回' : (r.channel || '-') },
+        { title: '状态', render: r => STATUS[r.status] || r.status || '-' },
+        { title: '复核', render: r => REVIEW[r.reviewStatus] || '-' },
+        { title: '备注', render: r => truncate(r.remark, 24) },
+        { title: '时间', render: r => fmtDate(r.createTime) },
+        { title: '操作', render: r => r.reviewStatus === 1
+          ? `<button class="btn-link" onclick="review(${r.id}, true)">复核通过</button> `
+            + `<button class="btn-link" onclick="review(${r.id}, false)">驳回</button>`
+          : (r.reviewStatus === 2 || r.reviewStatus === 3
+            ? `<span style="font-size:12px;color:#888">${esc(r.reviewRemark || '')}</span>` : '-') }
+      ]
+    });
+  }
+
+  // 强制退款复核：POST /oms/order/force-refund/{refundId}/review body {approved, remark}
+  async function review(refundId, approved) {
+    const remark = window.prompt(approved ? '复核意见（通过后会执行退款）' : '驳回理由', approved ? '同意退款' : '');
+    if (remark === null) return;
+    if (approved && !await Dialog.confirm('确认复核通过？通过后会立即向渠道发起退款，且不可重复复核。', '退款复核')) return;
+    await http.post('/admin-api/oms/order/force-refund/' + refundId + '/review',
+      { approved: approved, remark: remark });
+    Dialog.toast(approved ? '已通过复核并执行退款' : '已驳回');
+    load();
+  }
+
+  // 导出：接口返回结构化 JSON，前端生成文件下载。
+  async function exportRefund() {
+    const data = await http.get('/admin-api/fin/refund/export');
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().substring(0, 10);
+    a.href = url;
+    a.download = `refund-ledger-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    Dialog.toast('已导出 ' + (data ? data.length : 0) + ' 条退款流水');
+  }
+
+  document.getElementById('search').onclick = load;
+  document.getElementById('export').onclick = exportRefund;
+  load();
+</script>
+</body>
+</html>

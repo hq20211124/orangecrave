@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>用户列表</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">用户列表</div>
+  <div class="filter-bar">
+    <select id="identityType">
+      <option value="">全部身份</option>
+      <option value="0">普通用户</option>
+      <option value="1">团长</option>
+      <option value="2">摊主</option>
+    </select>
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const IDENTITY_TYPE = { 0: '普通用户', 1: '团长', 2: '摊主' };
+  const CERT_STATUS = {
+    0: { text: '未提交', cls: 'tag-gray' },
+    1: { text: '待审核', cls: 'tag-orange' },
+    2: { text: '已通过', cls: 'tag-green' },
+    3: { text: '已驳回', cls: 'tag-red' }
+  };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/ums/user/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'nickname', title: '昵称' },
+        { field: 'phone', title: '手机号' },
+        { title: '身份类型', render: r => IDENTITY_TYPE[r.identityType] || (r.identityType ?? '-') },
+        { title: '渠道', render: r => r.channelId ?? '-' },
+        { title: '认证状态', render: r => {
+          const s = CERT_STATUS[r.certStatus] || { text: '未知', cls: 'tag-gray' };
+          return `<span class="tag ${s.cls}">${s.text}</span>`;
+        } },
+        { title: '注册时间', render: r => fmtDate(r.createTime) },
+        { title: '操作', render: r => `<a href="detail.html?id=${r.id}">详情</a>` }
+      ],
+      query: () => ({ identityType: document.getElementById('identityType').value })
+    });
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

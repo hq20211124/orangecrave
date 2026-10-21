@@ -1,0 +1,28 @@
+<view class="container">
+  <view class="card">
+    <view class="row">
+      <text>数量（起订量需满足）</text>
+      <input type="number" value="{{qty}}" bindinput="onQty" bindblur="preview" style="width:160rpx;text-align:right;" />
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <text>定制图片</text>
+      <view class="btn btn-plain" style="padding:8rpx 28rpx;" bindtap="chooseImage">上传</view>
+    </view>
+    <view class="muted" style="margin-top:8rpx;">{{imageUrl ? '已上传并完成审核' : '上传前需确认版权承诺 v1.0'}}</view>
+    <image wx:if="{{imageUrl}}" src="{{imageUrl}}" mode="aspectFit" style="width:200rpx;height:200rpx;margin-top:12rpx;" />
+  </view>
+
+  <view class="card" wx:if="{{price}}">
+    <view class="row"><text class="muted">商品金额</text><text>¥{{price.itemAmount}}</text></view>
+    <view class="row" wx:if="{{price.discountAmount > 0}}"><text class="muted">优惠</text><text>-¥{{price.discountAmount}}</text></view>
+    <view class="row"><text class="muted">运费</text><text>¥{{price.freight}}</text></view>
+    <view class="row" style="margin-top:12rpx;"><text>应付</text><text class="price">¥{{price.payAmount}}</text></view>
+  </view>
+
+  <view class="btn btn-block" bindtap="submit" style="{{submitting ? 'opacity:.6' : ''}}">
+    {{submitting ? '提交中…' : '确认下单'}}
+  </view>
+</view>

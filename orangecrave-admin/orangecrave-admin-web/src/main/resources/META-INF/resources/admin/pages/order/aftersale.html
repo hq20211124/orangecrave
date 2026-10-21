@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>售后管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">售后管理</div>
+  <div class="filter-bar">
+    <select id="status">
+      <option value="">全部状态</option>
+      <option value="1">待审</option>
+      <option value="2">通过</option>
+      <option value="3">驳回</option>
+      <option value="4">完成</option>
+    </select>
+    <input id="keyword" placeholder="售后单号 / 订单号">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const AS_TYPE = { 1: '退款', 2: '退货退款', 3: '色差', 4: '其他' };
+  const AS_STATUS = {
+    1: '<span class="tag tag-orange">待审</span>',
+    2: '<span class="tag tag-green">通过</span>',
+    3: '<span class="tag tag-red">驳回</span>',
+    4: '<span class="tag tag-gray">完成</span>'
+  };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/oms/aftersale/page',
+      columns: [
+        { field: 'aftersaleNo', title: '售后单号' },
+        { field: 'orderId', title: '订单ID' },
+        { title: '类型', render: r => AS_TYPE[r.type] || '-' },
+        { field: 'reason', title: '原因' },
+        { title: '金额', render: r => money(r.amount) },
+        { title: '状态', render: r => AS_STATUS[r.status] || '-' },
+        { field: 'auditRemark', title: '审核备注' },
+        { title: '创建时间', render: r => fmtDate(r.createTime) },
+        { title: '操作', render: r => {
+          let html = `<button class="btn-link" onclick="detail(${r.id})">详情</button> `;
+          if (r.status === 1) {
+            html += `<button class="btn-link" onclick="approve(${r.id})">审核通过</button> `;
+            html += `<button class="btn-link" onclick="reject(${r.id})">驳回</button>`;
+          }
+          return html;
+        } }
+      ],
+      query: () => ({
+        status: document.getElementById('status').value,
+        keyword: document.getElementById('keyword').value
+      })
+    });
+  }
+
+  // 详情：GET /oms/aftersale/{id}
+  async function detail(id) {
+    const a = await http.get('/admin-api/oms/aftersale/' + id);
+    showPanel('售后详情 · ' + (a.aftersaleNo || id), a);
+  }
+
+  // 审核通过：POST /oms/aftersale/{id}/approve body {remark}
+  async function approve(id) {
+    const remark = window.prompt('审核通过，可填写备注（留空即无）', '');
+    if (remark === null) return;
+    await http.post('/admin-api/oms/aftersale/' + id + '/approve', { remark: remark });
+    Dialog.toast('已审核通过');
+    load();
+  }
+
+  // 驳回：POST /oms/aftersale/{id}/reject body {remark}
+  async function reject(id) {
+    const remark = window.prompt('请输入驳回原因', '');
+    if (remark === null || remark.trim() === '') { Dialog.toast('驳回原因不能为空'); return; }
+    if (!await Dialog.confirm('确认驳回该售后申请？此操作会记入操作日志。', '驳回售后')) return;
+    await http.post('/admin-api/oms/aftersale/' + id + '/reject', { remark: remark.trim() });
+    Dialog.toast('已驳回');
+    load();
+  }
+
+  // 简易详情弹层（仅本页使用）
+  function showPanel(title, obj) {
+    const rows = Object.keys(obj).map(k =>
+      '<div class="detail-row"><div class="k">' + esc(k) + '</div><div class="v">' + esc(obj[k]) + '</div></div>').join('');
+    const mask = document.createElement('div');
+    mask.className = 'dialog-mask';
+    mask.innerHTML =
+      '<div class="dialog" style="width:640px;max-width:90vw">' +
+        '<div class="dialog-header">' + esc(title) + '</div>' +
+        '<div class="dialog-body" style="max-height:60vh;overflow:auto;text-align:left;padding:16px">' + rows + '</div>' +
+        '<div class="dialog-footer"><button class="btn" data-act="close">关闭</button></div>' +
+      '</div>';
+    document.body.appendChild(mask);
+    mask.querySelector('[data-act=close]').onclick = () => mask.remove();
+  }
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '-' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

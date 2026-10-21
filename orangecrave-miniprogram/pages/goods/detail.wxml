@@ -1,0 +1,21 @@
+<view class="container">
+  <view class="card" wx:if="{{spu}}">
+    <view style="font-weight:600;font-size:34rpx;">{{spu.spuName}}</view>
+    <view class="muted" style="margin-top:8rpx;">{{spu.subTitle}}</view>
+    <view style="margin-top:12rpx;">
+      <text class="tag">{{spu.pricingType === 1 ? '按张' : (spu.pricingType === 2 ? '按面积' : '数量阶梯')}}</text>
+      <text class="muted" style="margin-left:12rpx;">起订 {{spu.minOrderQty}} / 递增 {{spu.incrementQty}}</text>
+    </view>
+    <view class="muted" style="margin-top:8rpx;">{{spu.needProof ? '需打样后才能分享' : ''}}</view>
+  </view>
+
+  <view class="card">
+    <view style="font-weight:600;margin-bottom:12rpx;">选择规格</view>
+    <view wx:for="{{skus}}" wx:key="id" class="row" style="padding:16rpx 0;border-top:1rpx solid #f0f0f0;">
+      <text>{{item.skuCode}}</text>
+      <text class="price">¥{{item.price}}</text>
+      <view class="btn" style="padding:8rpx 28rpx;" data-id="{{item.id}}" bindtap="startCustom">开始定制</view>
+    </view>
+    <view wx:if="{{!skus.length}}" class="muted">暂无规格</view>
+  </view>
+</view>

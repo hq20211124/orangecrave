@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>延迟任务日志</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">延迟任务日志</div>
+  <div class="filter-bar">
+    <button class="btn btn-primary" id="trigger">触发扫描</button>
+    <button class="btn" id="search">刷新</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const TASK_STATUS = {
+    1: { text: '待执行', cls: 'tag-blue' },
+    2: { text: '成功', cls: 'tag-green' },
+    3: { text: '失败', cls: 'tag-red' }
+  };
+
+  function statusTag(status) {
+    const s = TASK_STATUS[status] || { text: '未知', cls: 'tag-gray' };
+    return `<span class="tag ${s.cls}">${s.text}</span>`;
+  }
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/tsk/delay-log/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'taskType', title: '任务类型' },
+        { field: 'bizId', title: '业务 ID' },
+        { title: '触发时间', render: r => fmtDate(r.fireTime) },
+        { title: '执行时间', render: r => fmtDate(r.execTime) },
+        { title: '状态', render: r => statusTag(r.status) },
+        { field: 'retryCount', title: '重试次数' },
+        { field: 'errorMsg', title: '错误信息' },
+        { title: '操作', render: r =>
+            `<button class="btn btn-link" onclick="retry(${r.id})">重试</button>` }
+      ]
+    });
+  }
+
+  async function retry(id) {
+    if (!await Dialog.confirm('确认重试该延迟任务？此操作会记入操作日志。', '重试任务')) return;
+    await http.post('/admin-api/tsk/delay-log/' + id + '/retry');
+    Dialog.toast('已触发重试');
+    load();
+  }
+
+  async function trigger() {
+    if (!await Dialog.confirm('确认立即触发一次延迟任务扫描？此操作会记入操作日志。', '触发扫描')) return;
+    await http.post('/admin-api/tsk/scan/trigger');
+    Dialog.toast('已触发扫描');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  document.getElementById('trigger').onclick = trigger;
+  load();
+</script>
+</body>
+</html>

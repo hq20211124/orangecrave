@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>秒杀管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">秒杀管理</div>
+
+  <div class="card">
+    <h4>新增秒杀活动</h4>
+    <div class="filter-bar">
+      <input id="activityName" name="activityName" placeholder="活动名称">
+      <input id="startTime" name="startTime" type="datetime-local" title="开始时间">
+      <input id="endTime" name="endTime" type="datetime-local" title="结束时间">
+      <input id="totalStock" name="totalStock" type="number" min="0" placeholder="库存配额(留空=不限量)" title="秒杀独立库存，与 SKU 库存分离">
+      <input id="ruleConfig" name="ruleConfig" placeholder="规则 JSON，如 {&quot;seckillPrice&quot;:9.9,&quot;perUserLimit&quot;:2}" style="min-width:260px">
+      <button class="btn btn-primary" id="create">新增</button>
+    </div>
+    <p style="font-size:12px;color:#888;margin:8px 0 0">库存配额是活动独立配额，抢完即止；每人限购写在规则 JSON 的 perUserLimit 里（04 篇 §3.3）。</p>
+  </div>
+
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script src="../../js/form.js"></script>
+<script>
+  const ACTIVITY_STATUS = {
+    0: { text: '停用', cls: 'tag-gray' },
+    1: { text: '进行', cls: 'tag-green' },
+    2: { text: '结束', cls: 'tag-blue' }
+  };
+
+  function statusTag(status) {
+    const s = ACTIVITY_STATUS[status] || { text: '未知', cls: 'tag-gray' };
+    return `<span class="tag ${s.cls}">${s.text}</span>`;
+  }
+
+  function toIso(v) {
+    if (!v) return null;
+    // datetime-local 值形如 2026-01-01T09:00，补秒成 ISO
+    return v.length === 16 ? v + ':00' : v;
+  }
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/mkt/seckill/page',
+      columns: [
+        { field: 'activityName', title: '活动名称' },
+        { title: '开始时间', render: r => fmtDate(r.startTime) },
+        { title: '结束时间', render: r => fmtDate(r.endTime) },
+        { title: '状态', render: r => statusTag(r.status) },
+        { title: '秒杀配额', render: r => r.totalStock == null
+            ? '<span class="tag tag-gray">不限量</span>'
+            : `${r.soldStock || 0} / ${r.totalStock}` },
+        { title: '规则', render: r => truncate(r.ruleConfig, 40) || '-' },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="removeSeckill(${r.id})">删除</button>` }
+      ]
+    });
+  }
+
+  async function create() {
+    const data = Form.serialize('.card');
+    if (!data.activityName) { Dialog.toast('请填写活动名称'); return; }
+    await http.post('/admin-api/mkt/seckill', {
+      activityName: data.activityName,
+      startTime: toIso(data.startTime),
+      endTime: toIso(data.endTime),
+      totalStock: data.totalStock === '' ? null : Number(data.totalStock),
+      ruleConfig: data.ruleConfig
+    });
+    Dialog.toast('已新增');
+    document.getElementById('activityName').value = '';
+    document.getElementById('startTime').value = '';
+    document.getElementById('endTime').value = '';
+    document.getElementById('totalStock').value = '';
+    document.getElementById('ruleConfig').value = '';
+    load();
+  }
+
+  async function removeSeckill(id) {
+    if (!await Dialog.confirm('确认删除该秒杀活动？此操作会记入操作日志。', '删除')) return;
+    await http.del('/admin-api/mkt/seckill/' + id);
+    Dialog.toast('已删除');
+    load();
+  }
+
+  document.getElementById('create').onclick = create;
+  load();
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>系统参数</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">系统参数</div>
+  <div class="filter-bar">
+    <input id="keyword" placeholder="key">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/system/config/page',
+      columns: [
+        { field: 'configKey', title: 'key' },
+        { field: 'configValue', title: 'value' },
+        { title: '类型', render: r => r.configType === 0 ? '<span class="tag tag-gray">内置</span>' : '<span class="tag tag-blue">可改</span>' },
+        { field: 'remark', title: '说明' },
+        { title: '操作', render: r => r.configType === 0 ? '' :
+          `<button class="btn-link" onclick="edit(${r.id}, '${r.configKey}', '${r.configValue}')" data-perm="system:config:update">修改</button>` }
+      ],
+      query: () => ({ keyword: document.getElementById('keyword').value })
+    });
+  }
+
+  async function edit(id, key, value) {
+    const input = prompt(`修改 ${key}`, value);
+    if (input === null) return;
+    await http.put('/admin-api/system/config', { id, configValue: input });
+    Dialog.toast('已保存（已记快照）');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

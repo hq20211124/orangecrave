@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>活动列表</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">活动列表</div>
+  <div class="filter-bar">
+    <select id="activityType">
+      <option value="">全部类型</option>
+      <option value="1">拼团</option>
+      <option value="2">秒杀</option>
+      <option value="3">优惠券</option>
+      <option value="4">邀请好友</option>
+    </select>
+    <button class="btn btn-primary" id="search">查询</button>
+    <button class="btn" id="create" data-perm="mkt:activity:update" style="margin-left:auto">新增活动</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const ACTIVITY_TYPE = { 1: '拼团', 2: '秒杀', 3: '优惠券', 4: '邀请好友' };
+  const ACTIVITY_STATUS = {
+    0: { text: '停用', cls: 'tag-gray' },
+    1: { text: '进行', cls: 'tag-green' },
+    2: { text: '结束', cls: 'tag-blue' }
+  };
+
+  function statusTag(status) {
+    const s = ACTIVITY_STATUS[status] || { text: '未知', cls: 'tag-gray' };
+    return `<span class="tag ${s.cls}">${s.text}</span>`;
+  }
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/mkt/activity/page',
+      columns: [
+        { field: 'activityName', title: '活动名称' },
+        { title: '类型', render: r => ACTIVITY_TYPE[r.activityType] || r.activityType },
+        { title: '开始时间', render: r => fmtDate(r.startTime) },
+        { title: '结束时间', render: r => fmtDate(r.endTime) },
+        { title: '状态', render: r => statusTag(r.status) },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="location.href='activity-edit.html?id=${r.id}'" data-perm="mkt:activity:update">编辑</button> ` +
+          (r.status === 1
+            ? `<button class="btn-link" onclick="toggleStatus(${r.id}, 0)">停用</button> `
+            : `<button class="btn-link" onclick="toggleStatus(${r.id}, 1)">启用</button> `) +
+          `<button class="btn-link" onclick="removeActivity(${r.id})">删除</button>` }
+      ],
+      query: () => ({ activityType: document.getElementById('activityType').value })
+    });
+  }
+
+  async function toggleStatus(id, status) {
+    const label = status === 1 ? '启用' : '停用';
+    if (!await Dialog.confirm(`确认${label}该活动？此操作会记入操作日志。`, label)) return;
+    await http.put('/admin-api/mkt/activity/' + id + '/status' + qs({ status }));
+    Dialog.toast('已' + label);
+    load();
+  }
+
+  async function removeActivity(id) {
+    if (!await Dialog.confirm('确认删除该活动？此操作会记入操作日志。', '删除')) return;
+    await http.del('/admin-api/mkt/activity/' + id);
+    Dialog.toast('已删除');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  document.getElementById('create').onclick = () => { location.href = 'activity-edit.html'; };
+  load();
+</script>
+</body>
+</html>

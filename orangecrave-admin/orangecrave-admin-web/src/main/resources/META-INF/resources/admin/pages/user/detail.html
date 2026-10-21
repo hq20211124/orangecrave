@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>用户详情</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">用户详情</div>
+
+  <div class="card" id="info">加载中…</div>
+
+  <div class="card">
+    <h4>收货地址</h4>
+    <div id="addresses"></div>
+  </div>
+
+  <div class="card">
+    <h4>订单记录</h4>
+    <div id="orders"></div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const IDENTITY_TYPE = { 0: '普通用户', 1: '团长', 2: '摊主' };
+  const CERT_STATUS = {
+    0: { text: '未提交', cls: 'tag-gray' },
+    1: { text: '待审核', cls: 'tag-orange' },
+    2: { text: '已通过', cls: 'tag-green' },
+    3: { text: '已驳回', cls: 'tag-red' }
+  };
+
+  const id = new URLSearchParams(location.search).get('id');
+
+  async function load() {
+    const user = await http.get('/admin-api/ums/user/' + id);
+    const cert = CERT_STATUS[user.certStatus] || { text: '未知', cls: 'tag-gray' };
+    document.getElementById('info').innerHTML = `
+      <div class="detail-row"><div class="k">用户ID</div><div class="v">${user.id}</div></div>
+      <div class="detail-row"><div class="k">昵称</div><div class="v">${esc(user.nickname) || '-'}</div></div>
+      <div class="detail-row"><div class="k">手机号</div><div class="v">${user.phone || '-'}</div></div>
+      <div class="detail-row"><div class="k">openid</div><div class="v">${user.openid || '-'}</div></div>
+      <div class="detail-row"><div class="k">身份类型</div><div class="v">${IDENTITY_TYPE[user.identityType] || (user.identityType ?? '-')}</div></div>
+      <div class="detail-row"><div class="k">认证状态</div><div class="v"><span class="tag ${cert.cls}">${cert.text}</span></div></div>
+      <div class="detail-row"><div class="k">渠道ID</div><div class="v">${user.channelId ?? '-'}</div></div>
+      <div class="detail-row"><div class="k">注册时间</div><div class="v">${fmtDate(user.createTime)}</div></div>`;
+
+    const addrPage = await http.get('/admin-api/ums/address/page', { userId: id, pageNum: 1, pageSize: 50 });
+    const addrList = addrPage.list || [];
+    document.getElementById('addresses').innerHTML = addrList.length === 0
+      ? '<div class="empty">暂无地址</div>'
+      : addrList.map(a => `
+        <div class="detail-row">
+          <div class="k">${esc(a.receiverName) || '-'} ${esc(a.receiverPhone)}${a.isDefault === 1 ? ' · 默认' : ''}</div>
+          <div class="v">${esc([a.province, a.city, a.district, a.detail].filter(Boolean).join('')) || '-'}</div>
+        </div>`).join('');
+
+    const orderPage = await http.get('/admin-api/ums/user/' + id + '/orders', { pageNum: 1, pageSize: 50 });
+    const orderList = orderPage.list || [];
+    document.getElementById('orders').innerHTML = orderList.length === 0
+      ? '<div class="empty">暂无订单</div>'
+      : `<div class="table-wrap">
+          <table>
+            <thead><tr><th>订单号</th><th>状态</th><th>实付</th><th>付款时间</th><th>创建时间</th></tr></thead>
+            <tbody>${orderList.map(o => `
+              <tr>
+                <td>${o.orderNo || '-'}</td>
+                <td>${orderStatusTag(o.status)}</td>
+                <td>${money(o.payAmount)}</td>
+                <td>${fmtDate(o.payTime)}</td>
+                <td>${fmtDate(o.createTime)}</td>
+              </tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+  }
+
+  load();
+</script>
+</body>
+</html>

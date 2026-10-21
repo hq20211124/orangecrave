@@ -1,0 +1,25 @@
+<view class="container">
+  <view class="card">
+    <view class="row">
+      <text>售后类型</text>
+      <picker mode="selector" range="{{['退款','退货退款','色差','其他']}}" bindchange="onType">
+        <view class="muted">{{['退款','退货退款','色差','其他'][type - 1]}}</view>
+      </picker>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="muted" style="margin-bottom:8rpx;">问题描述</view>
+    <textarea placeholder="请描述遇到的问题" bindinput="onReason" style="width:100%;height:160rpx;" />
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <text>退款金额（可空，默认全额）</text>
+      <input type="digit" bindinput="onAmount" style="width:160rpx;text-align:right;" />
+    </view>
+    <view class="muted" style="margin-top:8rpx;">退款类型需在付款后 4 小时内申请</view>
+  </view>
+
+  <view class="btn btn-block" bindtap="submit">提交售后</view>
+</view>

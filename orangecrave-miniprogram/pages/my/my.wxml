@@ -1,0 +1,15 @@
+<view class="container">
+  <view class="card">
+    <view style="font-weight:600;font-size:34rpx;">{{nickname || '访客'}}</view>
+    <view class="muted" style="margin-top:8rpx;">userId: {{userId}}</view>
+  </view>
+
+  <view class="card row" bindtap="goOrders">
+    <text>我的订单</text>
+    <text class="muted">›</text>
+  </view>
+
+  <view class="card">
+    <view class="muted">本演示版只跑通主链路：首页 → 商品 → 定制传图 → 下单 → 支付 → 订单进度 → 售后。</view>
+  </view>
+</view>

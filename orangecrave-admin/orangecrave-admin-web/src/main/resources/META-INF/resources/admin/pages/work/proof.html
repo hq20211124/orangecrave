@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>打样单</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">打样单</div>
+  <div class="filter-bar">
+    <select id="status">
+      <option value="">全部状态</option>
+      <option value="0">待付款</option>
+      <option value="2">待审核</option>
+      <option value="3">待生产</option>
+      <option value="4">生产中</option>
+      <option value="6">待发货</option>
+      <option value="7">已发货</option>
+      <option value="8">已完成</option>
+      <option value="9">已取消</option>
+    </select>
+    <input id="keyword" placeholder="打样单号">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/wms/proof/page',
+      columns: [
+        { field: 'orderNo', title: '打样单号' },
+        { title: '状态', render: r => orderStatusTag(r.status) },
+        { title: '实付', render: r => money(r.payAmount) },
+        { title: '创建时间', render: r => fmtDate(r.createTime) },
+        { title: '操作', render: r => `<a href="../order/detail.html?id=${r.id}">详情</a>` }
+      ],
+      query: () => ({
+        status: document.getElementById('status').value,
+        keyword: document.getElementById('keyword').value
+      })
+    });
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

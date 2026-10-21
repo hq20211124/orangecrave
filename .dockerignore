@@ -1,0 +1,9 @@
+.git
+.tmpwx
+**/target
+**/.idea
+**/node_modules
+*.md
+docs
+.scratch
+.workbuddy

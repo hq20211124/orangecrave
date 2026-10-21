@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>画师管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">画师管理</div>
+  <div class="filter-bar">
+    <input id="keyword" placeholder="画师名称">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const esc = s => String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/pms/designer/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { title: '头像', render: r => r.avatar ? `<img src="${esc(r.avatar)}" style="height:32px;border-radius:50%">` : '-' },
+        { field: 'designerName', title: '画师名称' },
+        { title: '简介', render: r => truncate(r.intro, 30) },
+        { title: '状态', render: r => r.status === 1 ? '<span class="tag tag-green">启用</span>' : '<span class="tag tag-gray">停用</span>' },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="sales(${r.id}, '${esc(r.designerName)}')">销量</button>
+           <button class="btn-link" onclick="del(${r.id}, '${esc(r.designerName)}')">删除</button>` }
+      ],
+      query: () => ({ keyword: document.getElementById('keyword').value })
+    });
+  }
+
+  // 销量占位接口：只做归属统计，不做分成。
+  async function sales(id, name) {
+    const data = await http.get('/admin-api/pms/designer/' + id + '/sales');
+    showInfo('画师销量 · ' + name, `
+      <div class="detail-row"><div class="k">画师 ID</div><div class="v">${data.designerId ?? id}</div></div>
+      <div class="detail-row"><div class="k">说明</div><div class="v">${data.note || '暂无销量数据'}</div></div>`);
+  }
+
+  function showInfo(title, html) {
+    const mask = document.createElement('div');
+    mask.className = 'dialog-mask';
+    mask.innerHTML = `
+      <div class="dialog" style="width:420px">
+        <div class="dialog-header">${title}</div>
+        <div class="dialog-body">${html}</div>
+        <div class="dialog-footer"><button class="btn" data-act="close">关闭</button></div>
+      </div>`;
+    document.body.appendChild(mask);
+    mask.querySelector('[data-act=close]').onclick = () => mask.remove();
+  }
+
+  async function del(id, name) {
+    if (!await Dialog.confirm(`确认删除画师「${name}」？此操作会记入操作日志。`, '删除画师')) return;
+    await http.del('/admin-api/pms/designer/' + id);
+    Dialog.toast('已删除');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

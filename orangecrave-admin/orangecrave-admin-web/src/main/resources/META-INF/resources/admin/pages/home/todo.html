@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>运营待办</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">运营待办</div>
+  <div class="card">这是登录后的第一屏——每天真正要处理的事。</div>
+  <div class="stat-grid" id="stats"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script>
+  const ITEMS = [
+    { key: 'unpaidOrders', label: '待付款订单', path: '/order/list' },
+    { key: 'pendingAuditOrders', label: '待审核订单', path: '/order/list' },
+    { key: 'pendingProductionOrders', label: '待生产订单', path: '/order/list' },
+    { key: 'pendingDeliveryOrders', label: '待发货订单', path: '/order/list' },
+    { key: 'overdueDeliveryOrders', label: '超时未发货', path: '/order/list' },
+    { key: 'pendingTickets', label: '待处理工单', path: null },
+    { key: 'failedTasks', label: '失败延迟任务', path: '/system/oper-log' }
+  ];
+
+  http.get('/admin-api/fin/dashboard/todo').then(data => {
+    const container = document.getElementById('stats');
+    container.innerHTML = ITEMS.map(it => {
+      const num = data[it.key] ?? 0;
+      const cls = num > 0 ? 'num tag-red' : 'num';
+      return `<div class="stat-card">
+        <div class="${cls}" style="color:${num > 0 ? 'var(--color-danger)' : 'inherit'}">${num}</div>
+        <div class="label">${it.label}</div>
+      </div>`;
+    }).join('');
+  });
+</script>
+</body>
+</html>

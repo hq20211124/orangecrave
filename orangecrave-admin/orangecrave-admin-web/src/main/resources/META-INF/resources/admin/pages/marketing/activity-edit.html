@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>活动编辑</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+  <style>
+    .form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space) var(--space); align-items: center; max-width: 720px; }
+    .form-grid label { color: var(--color-text-secondary); text-align: right; }
+    .form-grid input, .form-grid select, .form-grid textarea { width: 100%; }
+    .form-actions { margin-top: var(--space); display: flex; gap: var(--space-sm); }
+    .type-note { grid-column: 1 / 3; color: var(--color-text-secondary); font-size: 12px; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="page-title" id="pageTitle">活动编辑</div>
+  <div class="card">
+    <div class="form-grid">
+      <label>活动名称</label>
+      <input id="activityName" maxlength="100" placeholder="必填，100 字以内">
+
+      <label>活动类型</label>
+      <select id="activityType">
+        <option value="1">拼团</option>
+        <option value="2">秒杀</option>
+        <option value="3">优惠券</option>
+        <option value="4">邀请好友</option>
+      </select>
+
+      <label>开始时间</label>
+      <input id="startTime" type="datetime-local">
+
+      <label>结束时间</label>
+      <input id="endTime" type="datetime-local">
+
+      <label>适用商品</label>
+      <input id="spuIds" placeholder="SPU ID，多个用逗号分隔，留空=全部">
+
+      <label>适用 SKU</label>
+      <input id="skuIds" placeholder="SKU ID，多个用逗号分隔，留空=不限">
+
+      <label>规则配置</label>
+      <textarea id="ruleConfig" rows="3" placeholder="JSON，如拼团 {&quot;groupSize&quot;:3}"></textarea>
+
+      <label>状态</label>
+      <select id="status">
+        <option value="1">进行</option>
+        <option value="0">停用</option>
+        <option value="2">结束</option>
+      </select>
+
+      <div class="type-note" id="seckillNote" style="display:none">
+        秒杀的独立库存配额在「秒杀管理」页维护（与 SKU 库存分离）；此处保存会跳转秒杀接口，其余字段通用。
+      </div>
+
+      <label>秒杀库存配额</label>
+      <input id="totalStock" type="number" min="0" placeholder="留空=不限量（仅秒杀）" style="display:none">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="save" data-perm="mkt:activity:update">保存</button>
+      <button class="btn" id="back">返回列表</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const activityId = params.get('id') ? Number(params.get('id')) : null;
+  const isEdit = activityId != null;
+
+  document.getElementById('pageTitle').textContent = isEdit ? '编辑活动 #' + activityId : '新增活动';
+  document.getElementById('back').onclick = () => { location.href = 'activity.html'; };
+
+  function isSeckill() {
+    return Number(document.getElementById('activityType').value) === 2;
+  }
+
+  function syncTypeUI() {
+    document.getElementById('totalStock').style.display = isSeckill() ? '' : 'none';
+    document.getElementById('seckillNote').style.display = isSeckill() ? '' : 'none';
+  }
+
+  document.getElementById('activityType').onchange = syncTypeUI;
+
+  function toIso(v) {
+    if (!v) return null;
+    // datetime-local 值形如 2026-01-01T09:00，补秒成 ISO
+    return v.length === 16 ? v + ':00' : v;
+  }
+
+  function toLocalInput(v) {
+    if (!v) return '';
+    return String(v).replace('T', ' ').substring(0, 16).replace(' ', 'T');
+  }
+
+  function fillForm(a) {
+    document.getElementById('activityName').value = a.activityName ?? '';
+    document.getElementById('activityType').value = a.activityType ?? 1;
+    document.getElementById('startTime').value = toLocalInput(a.startTime);
+    document.getElementById('endTime').value = toLocalInput(a.endTime);
+    document.getElementById('spuIds').value = a.spuIds ?? '';
+    document.getElementById('skuIds').value = a.skuIds ?? '';
+    document.getElementById('ruleConfig').value = a.ruleConfig ?? '';
+    document.getElementById('status').value = a.status ?? 1;
+    document.getElementById('totalStock').value = a.totalStock == null ? '' : a.totalStock;
+    syncTypeUI();
+  }
+
+  function idsOrNull(id) {
+    const v = document.getElementById(id).value.trim();
+    return v === '' ? null : v;
+  }
+
+  async function save() {
+    const activityName = document.getElementById('activityName').value.trim();
+    if (!activityName) { Dialog.toast('活动名称不能为空'); return; }
+    const ruleConfig = document.getElementById('ruleConfig').value.trim();
+    if (ruleConfig) {
+      try { JSON.parse(ruleConfig); } catch (e) { Dialog.toast('规则配置不是合法 JSON'); return; }
+    }
+    const common = {
+      id: activityId,
+      activityName,
+      startTime: toIso(document.getElementById('startTime').value),
+      endTime: toIso(document.getElementById('endTime').value),
+      spuIds: idsOrNull('spuIds'),
+      skuIds: idsOrNull('skuIds'),
+      ruleConfig: ruleConfig || null,
+      status: Number(document.getElementById('status').value)
+    };
+    if (isSeckill()) {
+      // 秒杀走独立接口：type 由服务端固定，且带独立库存配额
+      const totalStock = document.getElementById('totalStock').value;
+      await (isEdit
+        ? http.put('/admin-api/mkt/seckill', { ...common, totalStock: totalStock === '' ? null : Number(totalStock) })
+        : http.post('/admin-api/mkt/seckill', { ...common, totalStock: totalStock === '' ? null : Number(totalStock) }));
+    } else {
+      const body = { ...common, activityType: Number(document.getElementById('activityType').value) };
+      await (isEdit ? http.put('/admin-api/mkt/activity', body) : http.post('/admin-api/mkt/activity', body));
+    }
+    Dialog.toast(isEdit ? '已保存' : '已创建');
+    location.href = 'activity.html';
+  }
+
+  async function load() {
+    if (isEdit) {
+      const a = await http.get('/admin-api/mkt/activity/' + activityId);
+      fillForm(a);
+    } else {
+      syncTypeUI();
+    }
+  }
+
+  document.getElementById('save').onclick = save;
+  load();
+</script>
+</body>
+</html>

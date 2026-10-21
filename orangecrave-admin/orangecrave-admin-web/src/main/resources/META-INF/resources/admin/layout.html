@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>橙刻定制 · 后台管理</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    html, body { height: 100%; }
+    .layout { display: flex; height: 100%; }
+    .sidebar { width: 220px; background: #001529; color: #fff; overflow-y: auto; flex-shrink: 0; }
+    .sidebar .brand { padding: 16px; font-weight: 600; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
+    .sidebar a { display: block; color: #c9d1d9; padding: 10px 16px; cursor: pointer; }
+    .sidebar a:hover { background: rgba(255,255,255,.08); color: #fff; text-decoration: none; }
+    .sidebar .group > a { font-weight: 600; color: #fff; }
+    .sidebar .sub a { padding-left: 32px; font-size: 13px; }
+    .sidebar .active { background: var(--color-primary); color: #fff; }
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .topbar {
+      height: 52px; background: #fff; border-bottom: 1px solid var(--color-border);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 16px;
+    }
+    .content { flex: 1; }
+    .content iframe { width: 100%; height: 100%; border: 0; display: block; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">橙刻定制 · 后台</div>
+    <nav id="menu"></nav>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <span style="color:var(--color-text-secondary)">运营后台</span>
+      <span>
+        <span id="nickname" style="margin-right:12px"></span>
+        <button class="btn" onclick="logout()">退出</button>
+      </span>
+    </div>
+    <div class="content"><iframe id="content" src="pages/home/todo.html"></iframe></div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/dialog.js"></script>
+<script src="js/request.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  document.getElementById('nickname').textContent = sessionStorage.getItem('nickname') || '';
+
+  function menuFile(path) {
+    return 'pages' + path + '.html';
+  }
+
+  function renderMenu(nodes, container, isSub) {
+    nodes.forEach(node => {
+      const children = node.children || [];
+      if (children.length > 0) {
+        const group = document.createElement('div');
+        group.className = 'group';
+        group.innerHTML = `<a>${node.menuName}</a>`;
+        const sub = document.createElement('div');
+        sub.className = 'sub';
+        renderMenu(children, sub, true);
+        group.appendChild(sub);
+        container.appendChild(group);
+      } else if (node.path) {
+        const a = document.createElement('a');
+        a.textContent = node.menuName;
+        a.onclick = () => {
+          document.querySelectorAll('#menu a').forEach(x => x.classList.remove('active'));
+          a.classList.add('active');
+          document.getElementById('content').src = menuFile(node.path);
+        };
+        container.appendChild(a);
+        if (isSub) a.classList.add('sub-item');
+      }
+    });
+  }
+
+  http.get('/admin-api/auth/menus').then(tree => {
+    renderMenu(tree, document.getElementById('menu'), false);
+  });
+</script>
+</body>
+</html>

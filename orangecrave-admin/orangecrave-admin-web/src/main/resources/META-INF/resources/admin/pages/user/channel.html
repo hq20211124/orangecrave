@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>渠道管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">渠道管理</div>
+  <div class="filter-bar">
+    <button class="btn btn-primary" id="search">刷新</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  async function load() {
+    const container = document.getElementById('table');
+    container.innerHTML = '<div class="loading">加载中…</div>';
+    const list = await http.get('/admin-api/ums/channel/list');
+    if (!list || list.length === 0) {
+      container.innerHTML = '<div class="empty">暂无数据</div>';
+      return;
+    }
+    container.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>渠道名称</th><th>渠道编码</th><th>状态</th></tr></thead>
+          <tbody>${list.map(c => `
+            <tr>
+              <td>${c.id}</td>
+              <td>${c.channelName || '-'}</td>
+              <td>${c.channelCode || '-'}</td>
+              <td>${c.status === 1 ? '<span class="tag tag-green">启用</span>' : '<span class="tag tag-gray">停用</span>'}</td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

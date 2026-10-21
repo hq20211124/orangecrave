@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>发票管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">发票管理</div>
+  <div class="filter-bar">
+    <select id="status">
+      <option value="">全部状态</option>
+      <option value="1">待审</option>
+      <option value="2">已开</option>
+      <option value="3">驳回</option>
+      <option value="4">已取消</option>
+    </select>
+    <input id="keyword" placeholder="发票号 / 抬头">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const INV_TYPE = { 1: '电子', 2: '纸质' };
+  const INV_TITLE_TYPE = { 1: '个人', 2: '企业' };
+  const INV_STATUS = {
+    1: '<span class="tag tag-orange">待审</span>',
+    2: '<span class="tag tag-green">已开</span>',
+    3: '<span class="tag tag-red">驳回</span>',
+    4: '<span class="tag tag-gray">已取消</span>'
+  };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/oms/invoice/page',
+      columns: [
+        { field: 'invoiceNo', title: '发票号' },
+        { title: '抬头类型', render: r => INV_TITLE_TYPE[r.titleType] || '-' },
+        { field: 'title', title: '抬头' },
+        { field: 'taxNo', title: '税号' },
+        { title: '金额', render: r => money(r.amount) },
+        { field: 'email', title: '邮箱' },
+        { title: '类型', render: r => INV_TYPE[r.type] || '-' },
+        { title: '状态', render: r => INV_STATUS[r.status] || '-' },
+        { title: '凭证', render: r => { const url = safeUrl(r.fileUrl); return url ? `<a href="${url}" target="_blank">查看</a>` : '-'; } },
+        { title: '创建时间', render: r => fmtDate(r.createTime) },
+        { title: '操作', render: r => {
+          let html = '';
+          if (r.status === 1) {
+            html += `<button class="btn-link" onclick="issue(${r.id})">开具</button> `;
+            html += `<button class="btn-link" onclick="reject(${r.id})">驳回</button> `;
+          }
+          html += `<button class="btn-link" onclick="upload(${r.id})">上传凭证</button>`;
+          return html;
+        } }
+      ],
+      query: () => ({
+        status: document.getElementById('status').value,
+        keyword: document.getElementById('keyword').value
+      })
+    });
+  }
+
+  // 开具：POST /oms/invoice/{id}/issue
+  async function issue(id) {
+    if (!await Dialog.confirm('确认开具该发票？此操作会记入操作日志。', '开具发票')) return;
+    await http.post('/admin-api/oms/invoice/' + id + '/issue');
+    Dialog.toast('已开具');
+    load();
+  }
+
+  // 驳回：POST /oms/invoice/{id}/reject
+  async function reject(id) {
+    if (!await Dialog.confirm('确认驳回该发票申请？此操作会记入操作日志。', '驳回发票')) return;
+    await http.post('/admin-api/oms/invoice/' + id + '/reject');
+    Dialog.toast('已驳回');
+    load();
+  }
+
+  // 上传凭证：POST /oms/invoice/{id}/upload?fileUrl=（RequestParam）
+  async function upload(id) {
+    const fileUrl = window.prompt('请输入发票凭证文件地址（fileUrl）', '');
+    if (fileUrl === null || fileUrl.trim() === '') return;
+    await http.post('/admin-api/oms/invoice/' + id + '/upload' + qs({ fileUrl: fileUrl.trim() }));
+    Dialog.toast('凭证已上传');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+server:
+  port: 8080
+  # 列表接口一页动辄几十 KB，开启压缩能明显降低传输耗时
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: application/json,text/html,text/plain,text/css,application/javascript
+
+spring:
+  application:
+    name: orangecrave-admin
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # cachePrepStmts / useServerPrepStmts：复用服务端预编译语句，省掉每条 SQL 的预编译往返
+    # rewriteBatchedStatements：把批量插入/更新合并成一条语句发出
+    url: jdbc:mysql://localhost:3306/orangecrave?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048&useServerPrepStmts=true&rewriteBatchedStatements=true
+    username: root
+    password: root
+    hikari:
+      # 调到 40：与 ioExecutor 并行度对齐。Service 层把无依赖查询并行化后，
+      # 单请求会同时占多个连接，池太小会让「线程等连接」把并行退化成串行。
+      maximum-pool-size: 40
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    generator:
+      write-bigdecimal-as-plain: true
+  autoconfigure:
+    # sa-token-redis-jackson 自带一个 @Component 自动配置，会无视本工程开关、无条件要求
+    # RedisConnectionFactory（缺 Redis 的环境直接起不来）。这里统一排除，
+    # 改由 RedisConfig 按 orangecrave.redis.enabled 显式装配会话 dao。
+    exclude:
+      - cn.dev33.satoken.dao.SaTokenDaoRedisJackson
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      # Lettuce 默认共享一条连接、线程安全，本项目无阻塞命令，够用；需要池化再引 commons-pool2
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 2592000
+  is-concurrent: true
+  is-share: true
+  token-style: uuid
+  is-log: false
+
+orangecrave:
+  crypto:
+    # 敏感字段（身份证号）AES-GCM 密钥：Base64 后的 16/24/32 字节。
+    # 默认值是本地占位（和 root/root 同一性质），上线前必须用 ORANGECRAVE_CRYPTO_AES_KEY 覆盖，
+    # 否则等于用一把公开钥匙加密。留空会让启动直接失败，不会退回明文存储。
+    aes-key: ${ORANGECRAVE_CRYPTO_AES_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+  redis:
+    # 打开后：会话、字典缓存、分布式锁、秒杀预扣全部走 Redis（多实例共享、可水平扩容）；
+    # 关闭时回落进程内实现，本地与测试无需任何外部中间件。相关 Bean 一律条件装配。
+    enabled: false
+  storage:
+    # local=本机目录（默认）；s3=S3 兼容对象存储（MinIO/OSS/Ceph），切换只改这一行 + 下面 s3 块
+    type: local
+    local-dir: ./data/upload
+    url-prefix: /admin-api/file/download?key=
+    s3:
+      # MinIO 本地验证：docker compose up -d minio 后可直接用以下占位值
+      endpoint: http://localhost:9000
+      region: us-east-1
+      access-key: minioadmin
+      secret-key: minioadmin
+      bucket: orangecrave
+      # MinIO / Ceph 必须 path-style；AWS 官方端点要改 false
+      path-style-access: true
+      # 对外可访问地址（CDN 或桶公开域名）；留空回退「endpoint/bucket/key」
+      public-url-prefix:
+  cache:
+    # 字典缓存兜底 TTL：多实例下一个节点改了 sys_config/工艺字典，其他节点最迟在此时长内自愈
+    ttl-seconds: 60
+    max-size: 1024
+  idempotency:
+    # 幂等记录保留小时数，超期由清理任务物理删除；清理间隔按毫秒
+    retention-hours: 24
+    cleanup-interval-ms: 3600000
+  dashboard:
+    # 品类排行只看近 N 天，避免对存量做永久全表聚合
+    rank-days: 30
+  stock:
+    # 秒杀预扣键存活小时数：活动结束后键自然回收，不依赖清理任务
+    ttl-hours: 24
+  rate-limit:
+    # 只对下面显式声明的路径生效；未声明的路径一律放行（不对全站一刀切）
+    enabled: true
+    rules:
+      # 秒杀是唯一的高并发入口，单独收紧。键是**精确路径**（默认），以 /** 结尾才表示整棵子树——
+      # 精确匹配能让 /order/seckill 与它的结果轮询 /order/seckill/result/{id} 互不牵连。
+      # 命中维度：已登录按用户、未登录按来源 IP
+      /client-api/oms/order/seckill:
+        permits-per-second: 10
+        burst: 20
+  mq:
+    # 削峰用的消息通道参数；仅 Redis Stream 实现使用（同步直投实现不需要配置）
+    # 值里含冒号必须加引号，否则 YAML 把它当成嵌套映射
+    stream-prefix: "orangecrave:stream:"
+    group: orangecrave
+    # 留空则按「主机名-进程号」自动生成，多实例部署不必手工起名
+    consumer-name:
+    batch-size: 16
+    block-millis: 1000
+    max-length: 10000
+    idle-sleep-millis: 500
+    initial-delay-millis: 3000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: orangecrave-admin
+
+logging:
+  level:
+    # 默认 info：debug 会把每条 SQL 及参数同步落盘，是压测时最容易忽略的一大开销。
+    # 需要看 SQL 时临时调回 debug。
+    com.orangecrave.admin: info

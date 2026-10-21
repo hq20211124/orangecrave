@@ -1,0 +1,17 @@
+{
+  "description": "橙刻定制 · 小程序最小演示版（只跑通主链路，不复刻原版 83 页）",
+  "packOptions": {
+    "ignore": []
+  },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.0.0",
+  "appid": "touristappid",
+  "projectname": "orangecrave-miniprogram"
+}

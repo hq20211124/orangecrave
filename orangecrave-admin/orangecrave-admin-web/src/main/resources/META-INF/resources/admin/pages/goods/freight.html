@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>运费模板</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">运费模板</div>
+  <div class="filter-bar">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const esc = s => String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const CHARGE_TYPE = { 1: '按件', 2: '按重', 3: '按地区' };
+  const UNIT = { 1: '件', 2: 'kg', 3: '区' };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/pms/freight/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'templateName', title: '模板名称' },
+        { title: '计费方式', render: r => CHARGE_TYPE[r.chargeType] || r.chargeType || '-' },
+        { title: '首重/首件', render: r => `${r.firstUnit == null ? '-' : r.firstUnit}${UNIT[r.chargeType] || ''}` },
+        { title: '首费', render: r => money(r.firstFee) },
+        { title: '续重/续件', render: r => `${r.extraUnit == null ? '-' : r.extraUnit}${UNIT[r.chargeType] || ''}` },
+        { title: '续费', render: r => money(r.extraFee) },
+        { title: '满额包邮', render: r => r.freeThreshold == null ? '-' : money(r.freeThreshold) },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="del(${r.id}, '${esc(r.templateName)}')">删除</button>` }
+      ]
+    });
+  }
+
+  async function del(id, name) {
+    if (!await Dialog.confirm(`确认删除运费模板「${name}」？此操作会记入操作日志。`, '删除运费模板')) return;
+    await http.del('/admin-api/pms/freight/' + id);
+    Dialog.toast('已删除');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

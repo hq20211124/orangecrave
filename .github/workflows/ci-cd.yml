@@ -1,0 +1,70 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run tests
+        run: |
+          cd orangecrave-admin
+          mvn test -B
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-report
+          path: orangecrave-admin/**/target/surefire-reports/
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Huawei Cloud via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+            cd /opt/orangecrave
+            echo ">>> 拉取最新代码"
+            git pull origin master
+            echo ">>> 构建并重启容器"
+            docker compose -f docker-compose.prod.yml up -d --build
+            echo ">>> 清理旧镜像"
+            docker image prune -f
+            echo ">>> 等待健康检查"
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost:8080/admin-api/health > /dev/null 2>&1; then
+                echo ">>> 部署成功"
+                exit 0
+              fi
+              sleep 5
+            done
+            echo ">>> 健康检查失败，回滚"
+            docker compose -f docker-compose.prod.yml down
+            git checkout HEAD~1
+            docker compose -f docker-compose.prod.yml up -d --build
+            exit 1

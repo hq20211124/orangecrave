@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>身份认证审核</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">身份认证审核</div>
+  <div class="filter-bar">
+    <select id="status">
+      <option value="">全部状态</option>
+      <option value="1">待审</option>
+      <option value="2">通过</option>
+      <option value="3">驳回</option>
+    </select>
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const CERT_STATUS = {
+    1: { text: '待审', cls: 'tag-orange' },
+    2: { text: '通过', cls: 'tag-green' },
+    3: { text: '驳回', cls: 'tag-red' }
+  };
+  const IDENTITY_TYPE = { 1: '团长', 2: '摊主' };
+
+  function statusTag(status) {
+    const s = CERT_STATUS[status] || { text: '未知', cls: 'tag-gray' };
+    return `<span class="tag ${s.cls}">${s.text}</span>`;
+  }
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/ums/cert/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'userId', title: '用户ID' },
+        { title: '身份', render: r => IDENTITY_TYPE[r.identityType] || (r.identityType ?? '-') },
+        { field: 'realName', title: '真实姓名' },
+        { title: '证件号', render: r => esc(r.idCardNo) || '-' },
+        { title: '证明材料', render: r => truncate(r.materialUrls, 40) || '-' },
+        { title: '状态', render: r => statusTag(r.status) },
+        { title: '审核备注', render: r => esc(r.auditRemark) || '-' },
+        { title: '操作', render: r => r.status === 1 ?
+          `<button class="btn-link" onclick="approve(${r.id})" data-perm="user:cert:approve">通过</button>
+           <button class="btn-link" onclick="reject(${r.id})" data-perm="user:cert:reject">驳回</button>` : '' }
+      ],
+      query: () => ({ status: document.getElementById('status').value })
+    });
+  }
+
+  async function approve(id) {
+    if (!await Dialog.confirm('确认通过该身份认证？此操作会记入操作日志。', '通过')) return;
+    await http.post('/admin-api/ums/cert/' + id + '/approve', { remark: '审核通过' });
+    Dialog.toast('已通过');
+    load();
+  }
+
+  async function reject(id) {
+    if (!await Dialog.confirm('确认驳回该身份认证？此操作会记入操作日志。', '驳回')) return;
+    const remark = window.prompt('请输入驳回原因', '资料不清晰');
+    if (remark === null) return;
+    await http.post('/admin-api/ums/cert/' + id + '/reject', { remark });
+    Dialog.toast('已驳回');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

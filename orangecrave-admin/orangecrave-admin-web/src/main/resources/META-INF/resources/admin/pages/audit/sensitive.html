@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>敏感词</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">敏感词</div>
+  <div class="filter-bar">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/aud/sensitive-word/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'word', title: '敏感词' },
+        { field: 'category', title: '分类' },
+        { field: 'action', title: '动作' },
+        { title: '状态', render: r => r.status === 1 ? '<span class="tag tag-green">启用</span>' : `<span class="tag tag-gray">${r.status ?? '未知'}</span>` },
+        { title: '创建时间', render: r => fmtDate(r.createTime) },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="del(${r.id})" data-perm="audit:sensitive-word:delete">删除</button>` }
+      ],
+      query: () => ({})
+    });
+  }
+
+  async function del(id) {
+    if (!await Dialog.confirm('确认删除该敏感词？此操作会记入操作日志。', '删除敏感词')) return;
+    await http.del('/admin-api/aud/sensitive-word/' + id);
+    Dialog.toast('已删除');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

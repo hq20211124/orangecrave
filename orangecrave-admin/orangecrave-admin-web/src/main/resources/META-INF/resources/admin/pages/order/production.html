@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>生产工单</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">生产工单</div>
+  <div class="filter-bar">
+    <select id="status">
+      <option value="3" selected>待生产</option>
+      <option value="2">待审核</option>
+      <option value="4">生产中</option>
+      <option value="5">质检中</option>
+    </select>
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  // 生产状态推进链：待生产 → 生产中 → 质检中 → 待发货
+  const NEXT_STATUS = { 3: 4, 4: 5, 5: 6 };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/oms/production/page',
+      columns: [
+        { field: 'orderNo', title: '订单号' },
+        { title: '状态', render: r => orderStatusTag(r.status) },
+        { title: 'MES 工单号', render: r => r.workOrderNo || '-' },
+        { title: '预计交期', render: r => fmtDate(r.expectedDelivery) },
+        { title: '同步时间', render: r => fmtDate(r.syncTime) },
+        { title: '创建时间', render: r => fmtDate(r.createTime) },
+        { title: '操作', render: r => {
+          let html = '';
+          if (r.status === 2) {
+            html += `<button class="btn-link" onclick="auditPass(${r.id})">审核放行</button> `;
+          }
+          if (NEXT_STATUS[r.status]) {
+            html += `<button class="btn-link" onclick="advance(${r.id}, ${r.status})">推进生产</button> `;
+          }
+          html += `<button class="btn-link" onclick="setWorkOrderNo(${r.id})">录 MES 工单号</button> `;
+          html += `<button class="btn-link" onclick="mesSync(${r.id})">MES 同步</button>`;
+          return html;
+        } }
+      ],
+      query: () => ({ status: document.getElementById('status').value })
+    });
+  }
+
+  // 审核放行：待审核 → 待生产（PUT /{id}/audit-pass）
+  async function auditPass(id) {
+    await http.put('/admin-api/oms/production/' + id + '/audit-pass');
+    Dialog.toast('已审核放行');
+    load();
+  }
+
+  // 推进生产：body {status: 下一状态, remark}（PUT /{id}/status）
+  async function advance(id, current) {
+    const next = NEXT_STATUS[current];
+    const remark = window.prompt('推进到【' + (STATUS_TEXT[next] || next) + '】，可填写备注（留空即默认）', '后台推进生产');
+    if (remark === null) return;
+    await http.put('/admin-api/oms/production/' + id + '/status', { status: next, remark: remark });
+    Dialog.toast('已推进生产');
+    load();
+  }
+
+  // 录入 MES 工单号：body {workOrderNo}（POST /{id}/work-order-no）
+  async function setWorkOrderNo(id) {
+    const workOrderNo = window.prompt('请输入 MES 工单号', '');
+    if (workOrderNo === null || workOrderNo.trim() === '') return;
+    await http.post('/admin-api/oms/production/' + id + '/work-order-no', { workOrderNo: workOrderNo.trim() });
+    Dialog.toast('已录入 MES 工单号');
+    load();
+  }
+
+  // 从 MES 手工同步：POST /sync?orderId={id}，body {mesStatus}
+  // 车间术语表由服务端给出（GET /mes-status），前端不写死，MES 改口径时后台不用改页面。
+  let MES_OPTIONS = null;
+
+  async function mesSync(orderId) {
+    if (!MES_OPTIONS) {
+      const table = await http.get('/admin-api/oms/production/mes-status');
+      MES_OPTIONS = Object.entries(table || {})
+        .map(([term, row]) => ({ term, orderStatus: row.orderStatus, userText: row.userText }));
+      if (MES_OPTIONS.length === 0) { Dialog.toast('MES 状态表为空'); return; }
+    }
+    const mesStatus = await pickMesStatus(MES_OPTIONS);
+    if (!mesStatus) return;
+    const userText = await http.post('/admin-api/oms/production/sync' + qs({ orderId }), { mesStatus });
+    Dialog.toast('已同步：' + (userText || mesStatus));
+    load();
+  }
+
+  function pickMesStatus(options) {
+    return new Promise(resolve => {
+      const mask = document.createElement('div');
+      mask.className = 'dialog-mask';
+      mask.innerHTML = `
+        <div class="dialog">
+          <div class="dialog-header">MES 回传的车间状态</div>
+          <div class="dialog-body">
+            <select id="mes-option" style="width:100%">
+              ${options.map(o => `<option value="${esc(o.term)}">${esc(o.term)}（用户看到：${esc(o.userText)}）</option>`).join('')}
+            </select>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn" data-act="cancel">取消</button>
+            <button class="btn btn-primary" data-act="ok">同步</button>
+          </div>
+        </div>`;
+      document.body.appendChild(mask);
+      mask.querySelector('[data-act=cancel]').onclick = () => { mask.remove(); resolve(null); };
+      mask.querySelector('[data-act=ok]').onclick = () => {
+        const value = mask.querySelector('#mes-option').value;
+        mask.remove();
+        resolve(value);
+      };
+    });
+  }
+
+  const STATUS_TEXT = { 3: '待生产', 4: '生产中', 5: '质检中', 6: '待发货' };
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

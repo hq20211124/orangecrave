@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>审核队列</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">审核队列</div>
+  <div class="filter-bar">
+    <select id="autoResult">
+      <option value="">全部</option>
+      <option value="1">自动通过</option>
+      <option value="3">自动违规</option>
+    </select>
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const AUTO = { 1: '<span class="tag tag-green">自动通过</span>', 2: '<span class="tag tag-orange">疑似</span>', 3: '<span class="tag tag-red">违规(黑名单)</span>' };
+  const MANUAL = { 1: '通过', 2: '驳回' };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/aud/image/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { title: '业务', render: r => r.bizType === 1 ? '定制图' : (r.bizType === 2 ? '作品' : '头像') },
+        { title: 'pHash', render: r => r.pHash ?? '-' },
+        { title: '自动结果', render: r => AUTO[r.autoResult] || '-' },
+        { field: 'autoRemark', title: '说明' },
+        { title: '人工', render: r => r.manualResult ? MANUAL[r.manualResult] : '<span class="tag tag-gray">待处理</span>' },
+        { title: '操作', render: r => r.manualResult ? '' :
+          `<button class="btn-link" onclick="approve(${r.id})" data-perm="audit:image:approve">放行</button>
+           <button class="btn-link" onclick="reject(${r.id})" data-perm="audit:image:reject">驳回</button>` }
+      ],
+      query: () => ({ autoResult: document.getElementById('autoResult').value })
+    });
+  }
+
+  async function approve(id) {
+    await http.post('/admin-api/aud/image/' + id + '/approve', { remark: '人工放行' });
+    Dialog.toast('已放行');
+    load();
+  }
+
+  async function reject(id) {
+    if (!await Dialog.confirm('确认驳回？该图将并入 pHash 黑名单，后续相同上传自动拦截。', '驳回')) return;
+    await http.post('/admin-api/aud/image/' + id + '/reject', { remark: '人工驳回' });
+    Dialog.toast('已驳回');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

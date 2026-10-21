@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>分享码管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">分享码管理</div>
+  <div class="filter-bar">
+    <select id="shareType">
+      <option value="">全部类型</option>
+      <option value="1">普通</option>
+      <option value="2">无料</option>
+      <option value="3">合集</option>
+    </select>
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const SHARE_TYPE = { 1: '普通', 2: '无料', 3: '合集' };
+  const PAYER_TYPE = { 1: '领取者付商品费+邮费', 2: '分享者付商品费、领取者付邮费' };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/wms/share-code/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'shareCode', title: '分享码' },
+        { title: '类型', render: r => SHARE_TYPE[r.shareType] || '-' },
+        { title: '付费方', render: r => PAYER_TYPE[r.payerType] || '-' },
+        { field: 'workId', title: '作品ID' },
+        { field: 'collectionId', title: '合集ID' },
+        { title: '领取/上限', render: r => `${r.usedQty ?? 0} / ${r.maxOrderQty ?? '-'}` },
+        { title: '预付款', render: r => money(r.prepayAmount) },
+        { title: '已核销', render: r => money(r.prepayUsed) },
+        { title: '已退', render: r => money(r.prepayRefunded) },
+        { title: '状态', render: r => r.status ?? '-' },
+        { title: '过期时间', render: r => fmtDate(r.expireTime) },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="invalidate(${r.id})" data-perm="work:share-code:invalidate">强制失效</button> ` +
+          `<button class="btn-link" onclick="refund(${r.id})" data-perm="work:share-code:refund">退未核销余额</button>` }
+      ],
+      query: () => ({ shareType: document.getElementById('shareType').value })
+    });
+  }
+
+  async function invalidate(id) {
+    const reason = window.prompt('请输入强制失效原因', '后台强制失效');
+    if (reason === null) return;
+    if (!await Dialog.confirm('确认强制失效该分享码？此操作会记入操作日志。', '强制失效')) return;
+    await http.put('/admin-api/wms/share-code/' + id + '/invalidate', { reason });
+    Dialog.toast('已失效');
+    load();
+  }
+
+  async function refund(id) {
+    if (!await Dialog.confirm('确认退还该分享码未核销的预付款余额？此操作会记入操作日志。', '退还余额')) return;
+    const amount = await http.post('/admin-api/wms/share-code/' + id + '/refund');
+    Dialog.toast('已退还 ' + money(amount));
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

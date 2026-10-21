@@ -1,0 +1,11 @@
+page { background: #f5f6f8; }
+.container { padding: 16rpx; }
+.card { background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 20rpx; }
+.row { display: flex; justify-content: space-between; align-items: center; }
+.muted { color: #86909c; font-size: 24rpx; }
+.price { color: #f5222d; font-weight: 600; }
+.btn { background: #1677ff; color: #fff; border-radius: 40rpx; text-align: center; padding: 20rpx; }
+.btn-plain { background: #fff; color: #1677ff; border: 1rpx solid #1677ff; }
+.btn-block { margin-top: 20rpx; }
+input { border: 1rpx solid #e5e6eb; border-radius: 8rpx; padding: 12rpx; }
+.tag { font-size: 22rpx; padding: 2rpx 12rpx; border-radius: 20rpx; background: #eef2f7; }

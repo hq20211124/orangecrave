@@ -1,0 +1,110 @@
+# 单机生产部署：MySQL + Redis + App 全塞一台 2C2G 服务器
+# 用法：docker compose -f docker-compose.prod.yml up -d
+# 前提：已安装 Docker 和 Docker Compose Plugin
+
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: orangecrave-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?请在 .env 中设置}
+      MYSQL_DATABASE: orangecrave
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./orangecrave-admin/sql:/docker-entrypoint-initdb.d:ro
+    command: >
+      --innodb-buffer-pool-size=128M
+      --innodb-log-buffer-size=8M
+      --innodb-flush-log-at-trx-commit=2
+      --max-connections=50
+      --table-open-cache=200
+      --thread-cache-size=10
+      --sort-buffer-size=512K
+      --join-buffer-size=512K
+      --read-buffer-size=512K
+      --read-rnd-buffer-size=256K
+      --tmp-table-size=16M
+      --max-heap-table-size=16M
+      --performance-schema=OFF
+      --skip-log-bin
+    ports:
+      - "127.0.0.1:3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - orangecrave
+
+  redis:
+    image: redis:7-alpine
+    container_name: orangecrave-redis
+    restart: always
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --appendonly no
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - orangecrave
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orangecrave-app
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: server
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: orangecrave
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:?请在 .env 中设置}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      JAVA_OPTS: >-
+        -Xms384m -Xmx384m
+        -XX:MaxMetaspaceSize=128m
+        -XX:MaxDirectMemorySize=64m
+        -XX:+UseG1GC
+        -XX:MaxGCPauseMillis=200
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75.0
+        -Duser.timezone=Asia/Shanghai
+        -Djava.security.egd=file:/dev/./urandom
+    ports:
+      - "8080:8080"
+    volumes:
+      - app_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/admin-api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - orangecrave
+
+volumes:
+  mysql_data:
+  app_uploads:
+
+networks:
+  orangecrave:
+    driver: bridge

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>作品详情</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">作品详情</div>
+  <div class="card" id="info">加载中…</div>
+  <div class="card">
+    <h4>图槽位</h4>
+    <div id="images"></div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const id = new URLSearchParams(location.search).get('id');
+
+  async function load() {
+    const work = await http.get('/admin-api/wms/work/' + id);
+    document.getElementById('info').innerHTML = `
+      <div class="detail-row"><div class="k">作品ID</div><div class="v">${work.id ?? '-'}</div></div>
+      <div class="detail-row"><div class="k">作品名</div><div class="v">${esc(work.workName) || '-'}</div></div>
+      <div class="detail-row"><div class="k">用户ID</div><div class="v">${work.userId ?? '-'}</div></div>
+      <div class="detail-row"><div class="k">状态</div><div class="v">${workStatusTag(work.status)}</div></div>
+      <div class="detail-row"><div class="k">封面</div><div class="v">${work.coverUrl ? `<img src="${esc(work.coverUrl)}" style="max-width:120px;vertical-align:middle" />` : '-'}</div></div>
+      <div class="detail-row"><div class="k">SPU</div><div class="v">${work.spuId ?? '-'}</div></div>
+      <div class="detail-row"><div class="k">SKU</div><div class="v">${work.skuId ?? '-'}</div></div>
+      <div class="detail-row"><div class="k">审核备注</div><div class="v">${esc(work.auditRemark) || '-'}</div></div>
+      <div class="detail-row"><div class="k">过期时间</div><div class="v">${fmtDate(work.expireTime)}</div></div>
+      <div class="detail-row"><div class="k">来源分享ID</div><div class="v">${work.sourceShareId ?? '-'}</div></div>
+      <div class="detail-row"><div class="k">分享中不可删除</div><div class="v">${work.deletedShared === 1 ? '是' : '否'}</div></div>
+      <div class="detail-row"><div class="k">创建时间</div><div class="v">${fmtDate(work.createTime)}</div></div>`;
+
+    const images = await http.get('/admin-api/wms/work/' + id + '/images');
+    document.getElementById('images').innerHTML = (images || []).map(img => `
+      <div class="detail-row">
+        <div class="k">槽位 ${img.slotIndex ?? '-'}</div>
+        <div class="v">
+          ${img.imageUrl ? `<img src="${esc(img.imageUrl)}" style="max-width:120px;vertical-align:middle" />` : '-'}
+          &nbsp;份数：${img.copies ?? '-'}
+          &nbsp;pHash：${esc(img.pHash) || '-'}
+        </div>
+      </div>`).join('') || '<div class="empty">无图槽位</div>';
+  }
+
+  load();
+</script>
+</body>
+</html>

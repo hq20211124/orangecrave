@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>商品列表</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">商品列表</div>
+  <div class="filter-bar">
+    <input id="keyword" placeholder="商品名">
+    <button class="btn btn-primary" id="search">查询</button>
+    <button class="btn" id="create" data-perm="goods:spu:update" style="margin-left:auto">新增商品</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const PRICING = { 1: '按张', 2: '按面积', 3: '数量阶梯' };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/pms/spu/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'spuName', title: '商品名' },
+        { title: '计价', render: r => PRICING[r.pricingType] || r.pricingType },
+        { title: '基础价', render: r => money(r.basePrice) },
+        { title: '起订/递增', render: r => `${r.minOrderQty} / ${r.incrementQty}` },
+        { title: '状态', render: r => r.status === 1 ? '<span class="tag tag-green">上架</span>' : '<span class="tag tag-gray">下架</span>' },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="location.href='spu-edit.html?id=${r.id}'" data-perm="goods:spu:update">编辑</button> ` +
+          `<button class="btn-link" onclick="updatePrice(${r.id}, '${r.basePrice}', '${r.areaPrice || 0}')" data-perm="goods:price:update">改价</button>` }
+      ],
+      query: () => ({ keyword: document.getElementById('keyword').value })
+    });
+  }
+
+  async function updatePrice(id, basePrice, areaPrice) {
+    const input = prompt('请输入新的基础价（元）', basePrice);
+    if (input === null) return;
+    if (!await Dialog.confirm('确认改价？此操作会记入操作日志。', '改价')) return;
+    await http.put('/admin-api/pms/spu/' + id + '/price', { basePrice: Number(input), areaPrice: Number(areaPrice) });
+    Dialog.toast('已改价');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  document.getElementById('create').onclick = () => { location.href = 'spu-edit.html'; };
+  load();
+</script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>发货管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">发货管理</div>
+  <div class="filter-bar">
+    <span>待发货订单（状态=待发货）</span>
+    <button class="btn" id="batch">批量发货</button>
+    <button class="btn" id="print">打面单</button>
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const PAGE_SIZE = 200;
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/oms/order/page',
+      columns: [
+        { field: 'orderNo', title: '订单号' },
+        { title: '状态', render: r => orderStatusTag(r.status) },
+        { title: '实付', render: r => money(r.payAmount) },
+        { title: '收货快照', render: r => truncate(r.receiverSnapshot, 40) || '-' },
+        { title: '付款时间', render: r => fmtDate(r.payTime) },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="ship(${r.id})">发货</button> ` +
+          `<button class="btn-link" onclick="track(${r.id})">物流轨迹</button>` }
+      ],
+      query: () => ({ status: 6 })
+    });
+  }
+
+  // 拉取全部待发货订单 id
+  async function fetchPendingIds() {
+    const page = await http.get('/admin-api/oms/order/page', { status: 6, pageNum: 1, pageSize: PAGE_SIZE });
+    return (page.list || []).map(r => r.id);
+  }
+
+  // 行内发货：POST /oms/delivery body {orderId, company, deliveryNo}
+  async function ship(orderId) {
+    const company = window.prompt('快递公司（可留空走桩自动生成）', '顺丰');
+    if (company === null) return;
+    const deliveryNo = window.prompt('运单号（可留空走桩自动生成）', '');
+    if (deliveryNo === null) return;
+    await http.post('/admin-api/oms/delivery', { orderId: orderId, company: company, deliveryNo: deliveryNo });
+    Dialog.toast('已发货');
+    load();
+  }
+
+  // 批量发货：POST /oms/delivery/batch body [{orderId, company, deliveryNo}]
+  async function batchShip() {
+    if (!await Dialog.confirm('确认对当前全部待发货订单批量发货（默认顺丰，走桩生成运单号）？此操作会记入操作日志。', '批量发货')) return;
+    const items = (await fetchPendingIds()).map(id => ({ orderId: id, company: '顺丰', deliveryNo: '' }));
+    if (!items.length) { Dialog.toast('暂无待发货订单'); return; }
+    const res = await http.post('/admin-api/oms/delivery/batch', items);
+    Dialog.toast('已批量发货 ' + ((res && res.length) || items.length) + ' 单');
+    load();
+  }
+
+  // 打面单：GET /oms/delivery/print?orderIds=a,b,c
+  async function printWaybills() {
+    const ids = await fetchPendingIds();
+    if (!ids.length) { Dialog.toast('暂无待发货订单'); return; }
+    const list = await http.get('/admin-api/oms/delivery/print', { orderIds: ids.join(',') });
+    showPanel('电子面单打印数据', list);
+  }
+
+  // 物流轨迹：GET /oms/delivery/track?no=
+  async function track(orderId) {
+    let no = '';
+    try {
+      const d = await http.get('/admin-api/oms/delivery/' + orderId);
+      no = d && d.deliveryNo;
+    } catch (e) { /* 尚未发货时无记录 */ }
+    if (!no) {
+      no = window.prompt('请输入运单号', '');
+      if (!no) return;
+    }
+    const list = await http.get('/admin-api/oms/delivery/track', { no: no });
+    showPanel('物流轨迹 · ' + no, list);
+  }
+
+  // 简易结果弹层（仅本页使用）
+  function showPanel(title, data) {
+    const body = Array.isArray(data)
+      ? (data.length
+          ? data.map(x => '<pre style="margin:0 0 10px;white-space:pre-wrap;word-break:break-all">' + esc(JSON.stringify(x, null, 2)) + '</pre>').join('')
+          : '<div class="empty">无数据</div>')
+      : '<pre style="white-space:pre-wrap;word-break:break-all">' + esc(JSON.stringify(data, null, 2)) + '</pre>';
+    const mask = document.createElement('div');
+    mask.className = 'dialog-mask';
+    mask.innerHTML =
+      '<div class="dialog" style="width:720px;max-width:90vw">' +
+        '<div class="dialog-header">' + esc(title) + '</div>' +
+        '<div class="dialog-body" style="max-height:60vh;overflow:auto;text-align:left;padding:16px">' + body + '</div>' +
+        '<div class="dialog-footer"><button class="btn" data-act="close">关闭</button></div>' +
+      '</div>';
+    document.body.appendChild(mask);
+    mask.querySelector('[data-act=close]').onclick = () => mask.remove();
+  }
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  document.getElementById('search').onclick = load;
+  document.getElementById('batch').onclick = batchShip;
+  document.getElementById('print').onclick = printWaybills;
+  load();
+</script>
+</body>
+</html>

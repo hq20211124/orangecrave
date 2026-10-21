@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>工单详情</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">工单详情</div>
+  <div class="card" id="info">加载中…</div>
+  <div class="card">
+    <h4>会话记录</h4>
+    <div id="replies" style="max-height:50vh;overflow:auto">加载中…</div>
+    <div style="margin-top:12px">
+      <textarea id="content" rows="3" style="width:100%;box-sizing:border-box" placeholder="输入回复内容…"></textarea>
+      <div style="margin-top:8px">
+        <button class="btn btn-primary" id="send">发送回复</button>
+        <a class="btn-link" href="ticket.html" style="margin-left:12px">返回列表</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const id = new URLSearchParams(location.search).get('id');
+
+  const TK_TYPE = { 1: '售后咨询', 2: '侵权投诉', 3: '色差投诉', 4: '其他' };
+  const TK_STATUS = { 1: '待受理', 2: '处理中', 3: '已解决', 4: '已关闭' };
+  const TK_SOURCE = { 1: '用户提交', 2: '客服代建' };
+
+  async function loadTicket() {
+    const t = await http.get('/admin-api/svc/ticket/' + id);
+    document.getElementById('info').innerHTML = `
+      <div class="detail-row"><div class="k">工单号</div><div class="v">${esc(t.ticketNo)}</div></div>
+      <div class="detail-row"><div class="k">类型</div><div class="v">${TK_TYPE[t.type] || '-'}</div></div>
+      <div class="detail-row"><div class="k">状态</div><div class="v">${TK_STATUS[t.status] || '-'}</div></div>
+      <div class="detail-row"><div class="k">标题</div><div class="v">${esc(t.title)}</div></div>
+      <div class="detail-row"><div class="k">内容</div><div class="v">${esc(t.content)}</div></div>
+      <div class="detail-row"><div class="k">关联订单</div><div class="v">${t.orderId || '-'}</div></div>
+      <div class="detail-row"><div class="k">处理人ID</div><div class="v">${t.handlerId || '-'}</div></div>
+      <div class="detail-row"><div class="k">来源</div><div class="v">${TK_SOURCE[t.source] || '-'}</div></div>
+      <div class="detail-row"><div class="k">创建时间</div><div class="v">${fmtDate(t.createTime)}</div></div>`;
+  }
+
+  async function loadReplies() {
+    const list = await http.get('/admin-api/svc/ticket/' + id + '/replies');
+    const box = document.getElementById('replies');
+    if (!list || !list.length) { box.innerHTML = '<div class="empty">暂无会话</div>'; return; }
+    box.innerHTML = list.map(r => {
+      const mine = r.replyType === 1; // 1 客服 / 2 用户
+      return `
+        <div style="display:flex;margin:8px 0;justify-content:${mine ? 'flex-end' : 'flex-start'}">
+          <div style="max-width:70%;padding:8px 12px;border-radius:8px;background:${mine ? '#e6f0ff' : '#f2f2f2'}">
+            <div style="font-size:12px;color:#888;margin-bottom:4px">${mine ? '客服' : '用户'} · ${fmtDate(r.createTime)}</div>
+            <div style="white-space:pre-wrap;word-break:break-word">${esc(r.content)}</div>
+            ${r.images ? `<div style="font-size:12px;color:#888;margin-top:4px">附件：${esc(r.images)}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // 发送回复：POST /svc/ticket/{id}/reply body {content, images}
+  async function sendReply() {
+    const el = document.getElementById('content');
+    const content = el.value.trim();
+    if (!content) { Dialog.toast('请输入回复内容'); return; }
+    await http.post('/admin-api/svc/ticket/' + id + '/reply', { content: content });
+    el.value = '';
+    Dialog.toast('已回复');
+    loadReplies();
+  }
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  document.getElementById('send').onclick = sendReply;
+  loadTicket();
+  loadReplies();
+</script>
+</body>
+</html>

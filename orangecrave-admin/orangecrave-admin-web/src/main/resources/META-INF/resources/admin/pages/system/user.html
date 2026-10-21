@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>管理员</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">管理员</div>
+  <div class="filter-bar">
+    <input id="keyword" placeholder="用户名 / 昵称">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/system/user/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'username', title: '用户名' },
+        { field: 'nickname', title: '昵称' },
+        { field: 'phone', title: '手机号' },
+        { title: '状态', render: r => r.status === 1
+            ? '<span class="tag tag-green">启用</span>'
+            : '<span class="tag tag-gray">停用</span>' },
+        { title: '最近登录', render: r => fmtDate(r.lastLoginTime) },
+        { title: '操作', render: r =>
+            (r.status === 1
+              ? `<button class="btn btn-link" onclick="toggleStatus(${r.id}, 0)">停用</button> `
+              : `<button class="btn btn-link" onclick="toggleStatus(${r.id}, 1)">启用</button> `) +
+            `<button class="btn btn-link" onclick="resetPassword(${r.id})">重置密码</button> ` +
+            `<button class="btn btn-link" onclick="assignRoles(${r.id})">分配角色</button>` }
+      ],
+      query: () => ({ keyword: document.getElementById('keyword').value })
+    });
+  }
+
+  async function toggleStatus(id, status) {
+    const label = status === 1 ? '启用' : '停用';
+    if (!await Dialog.confirm('确认' + label + '该管理员？此操作会记入操作日志。', label)) return;
+    await http.put('/admin-api/system/user/' + id + '/status?status=' + status);
+    Dialog.toast('已' + label);
+    load();
+  }
+
+  async function resetPassword(id) {
+    if (!await Dialog.confirm('确认重置该管理员的密码？此操作会记入操作日志。', '重置密码')) return;
+    const pwd = window.prompt('请输入新密码');
+    if (!pwd) return;
+    await http.put('/admin-api/system/user/' + id + '/password/reset?password=' + encodeURIComponent(pwd));
+    Dialog.toast('密码已重置');
+  }
+
+  async function assignRoles(id) {
+    const ids = await http.get('/admin-api/system/user/' + id + '/roles');
+    const input = window.prompt('请输入角色 ID，多个用英文逗号分隔', (ids || []).join(','));
+    if (input === null) return;
+    const roleIds = input.split(',')
+      .map(s => s.trim())
+      .filter(s => s !== '')
+      .map(Number)
+      .filter(n => !isNaN(n));
+    await http.put('/admin-api/system/user/' + id + '/roles', roleIds);
+    Dialog.toast('角色已分配');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

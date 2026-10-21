@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>合集管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">合集管理</div>
+  <div class="filter-bar">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/wms/collection/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'collectionName', title: '合集名' },
+        { field: 'userId', title: '用户ID' },
+        { title: '封面', render: r => r.coverUrl ? `<img src="${esc(r.coverUrl)}" style="max-width:60px;max-height:60px;vertical-align:middle" />` : '-' },
+        { title: '状态', render: r => r.status === 1 ? '<span class="tag tag-green">正常</span>' : `<span class="tag tag-gray">${r.status ?? '未知'}</span>` },
+        { title: '创建时间', render: r => fmtDate(r.createTime) },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="del(${r.id})" data-perm="work:collection:delete">删除</button>` }
+      ],
+      query: () => ({})
+    });
+  }
+
+  async function del(id) {
+    if (!await Dialog.confirm('确认删除该合集？此操作会记入操作日志。', '删除合集')) return;
+    await http.del('/admin-api/wms/collection/' + id);
+    Dialog.toast('已删除');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

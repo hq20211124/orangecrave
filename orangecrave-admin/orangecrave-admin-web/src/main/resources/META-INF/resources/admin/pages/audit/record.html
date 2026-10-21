@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>审核记录</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">审核记录</div>
+  <div class="filter-bar">
+    <select id="autoResult">
+      <option value="">全部自动结果</option>
+      <option value="1">自动通过</option>
+      <option value="2">疑似</option>
+      <option value="3">违规</option>
+    </select>
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const BIZ = { 1: '定制图', 2: '作品', 3: '头像' };
+  const AUTO = { 1: '<span class="tag tag-green">自动通过</span>', 2: '<span class="tag tag-orange">疑似</span>', 3: '<span class="tag tag-red">违规</span>' };
+  const MANUAL = { 1: '<span class="tag tag-green">通过</span>', 2: '<span class="tag tag-red">驳回</span>' };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/aud/image/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { title: '业务类型', render: r => BIZ[r.bizType] || r.bizType || '-' },
+        { field: 'bizId', title: '业务ID' },
+        { title: '图片', render: r => {
+            const url = safeUrl(r.imageUrl);
+            return url ? `<a href="${url}" target="_blank"><img src="${url}" style="max-width:60px;max-height:60px;vertical-align:middle" /></a>` : '-';
+          } },
+        { title: 'pHash', render: r => r.pHash ?? '-' },
+        { title: '自动结果', render: r => AUTO[r.autoResult] || '-' },
+        { title: '人工结果', render: r => MANUAL[r.manualResult] || '<span class="tag tag-gray">待处理</span>' },
+        { title: '审核时间', render: r => fmtDate(r.auditTime) },
+        { field: 'auditUserId', title: '审核人ID' }
+      ],
+      query: () => ({ autoResult: document.getElementById('autoResult').value })
+    });
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

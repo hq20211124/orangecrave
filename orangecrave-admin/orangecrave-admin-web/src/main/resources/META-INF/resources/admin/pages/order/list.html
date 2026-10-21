@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>订单列表</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">订单列表</div>
+  <div class="filter-bar">
+    <select id="status">
+      <option value="">全部状态</option>
+      <option value="0">待付款</option>
+      <option value="2">待审核</option>
+      <option value="3">待生产</option>
+      <option value="4">生产中</option>
+      <option value="6">待发货</option>
+      <option value="7">已发货</option>
+      <option value="8">已完成</option>
+      <option value="9">已取消</option>
+    </select>
+    <input id="keyword" placeholder="订单号">
+    <button class="btn btn-primary" id="search">查询</button>
+    <button class="btn" id="export">导出本页</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const DEFAULT_PAGE_SIZE = 20;
+
+  function currentQuery() {
+    return {
+      status: document.getElementById('status').value,
+      keyword: document.getElementById('keyword').value
+    };
+  }
+
+  // 读取表格当前页码（分页栏中的 "当前 / 总数"）
+  function currentPageNum() {
+    const spans = document.querySelectorAll('#table .pagination span');
+    if (spans.length >= 2) {
+      const m = spans[1].textContent.split('/');
+      const n = parseInt((m[0] || '').trim(), 10);
+      if (n >= 1) return n;
+    }
+    return 1;
+  }
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/oms/order/page',
+      columns: [
+        { field: 'orderNo', title: '订单号' },
+        { title: '状态', render: r => orderStatusTag(r.status) },
+        { title: '实付', render: r => money(r.payAmount) },
+        { title: '付款时间', render: r => fmtDate(r.payTime) },
+        { title: '创建时间', render: r => fmtDate(r.createTime) },
+        { title: '操作', render: r =>
+          `<a href="detail.html?id=${r.id}">详情</a> ` +
+          (r.status === 0 ? `<button class="btn-link" onclick="pay(${r.id})">支付(桩)</button> ` : '') +
+          `<button class="btn-link" onclick="changePrice(${r.id}, ${r.payAmount != null ? r.payAmount : 0})">改价</button> ` +
+          `<button class="btn-link" onclick="changeRemark(${r.id})">备注</button> ` +
+          `<button class="btn-link" onclick="forceRefund(${r.id}, ${r.payAmount != null ? r.payAmount : 0})">强制退款</button>` }
+      ],
+      query: currentQuery
+    });
+  }
+
+  // 支付（桩）：PUT /oms/order/{id}/pay
+  async function pay(id) {
+    if (!await Dialog.confirm('确认对该订单执行支付（支付桩，会触发状态机）？', '支付')) return;
+    await http.put('/admin-api/oms/order/' + id + '/pay');
+    Dialog.toast('已支付');
+    load();
+  }
+
+  // 改价：PUT /oms/order/{id}/price body {payAmount}
+  async function changePrice(id, oldAmount) {
+    const v = window.prompt('请输入新的实付金额', oldAmount);
+    if (v === null || v.trim() === '') return;
+    const payAmount = Number(v.trim());
+    if (isNaN(payAmount) || payAmount < 0) { Dialog.toast('金额不合法'); return; }
+    if (!await Dialog.confirm('确认将实付金额改为 ' + money(payAmount) + '？此操作会记入操作日志。', '改价')) return;
+    await http.put('/admin-api/oms/order/' + id + '/price', { payAmount: payAmount });
+    Dialog.toast('已改价');
+    load();
+  }
+
+  // 备注：PUT /oms/order/{id}/remark body {remark}
+  async function changeRemark(id) {
+    const remark = window.prompt('请输入订单备注', '');
+    if (remark === null) return;
+    await http.put('/admin-api/oms/order/' + id + '/remark', { remark: remark });
+    Dialog.toast('已保存备注');
+    load();
+  }
+
+  // 强制退款申请：POST /oms/order/{id}/force-refund body {amount, reason}
+  // 03 篇 §3.3 两段式——这里只提交申请，钱要等财务在「退款流水」页复核通过后才动
+  async function forceRefund(id, defaultAmount) {
+    const v = window.prompt('请输入退款金额', defaultAmount);
+    if (v === null || v.trim() === '') return;
+    const amount = Number(v.trim());
+    if (isNaN(amount) || amount <= 0) { Dialog.toast('金额不合法'); return; }
+    const reason = window.prompt('请输入强制退款原因', '后台强制退款');
+    if (reason === null || reason.trim() === '') { Dialog.toast('退款原因不能为空'); return; }
+    if (!await Dialog.confirm('确认提交强制退款申请 ' + money(amount) + '？提交后进入财务复核，复核通过才会退款。', '强制退款申请')) return;
+    await http.post('/admin-api/oms/order/' + id + '/force-refund', { amount: amount, reason: reason.trim() });
+    Dialog.toast('已提交财务复核，退款单号请在「退款流水」页查看');
+    load();
+  }
+
+  // 导出本页：POST /oms/order/batch-export body {ids}，返回数据下载为 JSON
+  async function exportPage() {
+    const page = await http.get('/admin-api/oms/order/page',
+      Object.assign({ pageNum: currentPageNum(), pageSize: DEFAULT_PAGE_SIZE }, currentQuery()));
+    const ids = (page.list || []).map(r => r.id);
+    if (!ids.length) { Dialog.toast('当前页无可导出数据'); return; }
+    const data = await http.post('/admin-api/oms/order/batch-export', { ids: ids });
+    downloadJson(data, 'order-batch-export.json');
+    Dialog.toast('已导出 ' + ids.length + ' 条');
+  }
+
+  function downloadJson(data, filename) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById('search').onclick = load;
+  document.getElementById('export').onclick = exportPage;
+  load();
+</script>
+</body>
+</html>

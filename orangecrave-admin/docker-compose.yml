@@ -1,0 +1,52 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: orangecrave-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: orangecrave
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      # 启动时按文件名顺序执行 *.sql（*_schema.sql 先于 *_seed.sql）
+      - ./sql:/docker-entrypoint-initdb.d:ro
+      - orangecrave-mysql-data:/var/lib/mysql
+
+  # 会话/缓存/分布式锁/秒杀预扣的统一底座。校验用：本工程 orangecrave.redis.enabled=true 才连它
+  redis:
+    image: redis:7-alpine
+    container_name: orangecrave-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+    ports:
+      - "6379:6379"
+    volumes:
+      - orangecrave-redis-data:/data
+
+  # S3 兼容对象存储：用于验证 orangecrave.storage.type=s3 分支，与 OSS/Ceph 同一套 SDK
+  minio:
+    image: minio/minio:latest
+    container_name: orangecrave-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - orangecrave-minio-data:/data
+
+volumes:
+  orangecrave-mysql-data:
+  orangecrave-redis-data:
+  orangecrave-minio-data:

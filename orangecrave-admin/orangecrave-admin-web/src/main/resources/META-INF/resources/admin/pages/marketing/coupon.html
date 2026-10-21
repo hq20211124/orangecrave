@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>优惠券管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">优惠券管理</div>
+
+  <div id="table"></div>
+
+  <div class="card">
+    <h4>核销记录</h4>
+    <div class="filter-bar">
+      <input id="userId" placeholder="用户ID（可选）">
+      <button class="btn btn-primary" id="searchUser">查询</button>
+    </div>
+    <div id="userTable"></div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const COUPON_TYPE = { 1: '满减', 2: '折扣', 3: '无门槛' };
+  const USER_COUPON_STATUS = {
+    1: { text: '未使用', cls: 'tag-blue' },
+    2: { text: '已使用', cls: 'tag-green' },
+    3: { text: '已过期', cls: 'tag-gray' }
+  };
+  const COUPON_SOURCE = { 1: '人工发放', 2: '自动发放', 3: '领券中心' };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/mkt/coupon/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'couponName', title: '券名称' },
+        { title: '类型', render: r => COUPON_TYPE[r.couponType] || r.couponType },
+        { title: '门槛', render: r => money(r.threshold) },
+        { title: '面额', render: r => money(r.amount) },
+        { title: '折扣', render: r => r.discount ?? '-' },
+        { title: '有效期(天)', render: r => r.validDays ?? '-' },
+        { title: '发放/总量', render: r => `${r.issuedQty ?? 0} / ${r.totalQty ?? 0}` },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="grant(${r.id})">发放</button> ` +
+          `<button class="btn-link" onclick="grantBatch(${r.id})">批量发放</button>` }
+      ]
+    });
+  }
+
+  function parseUserIds(str) {
+    return String(str).split(/[,\s，]+/).map(s => s.trim()).filter(Boolean).map(Number).filter(n => !isNaN(n));
+  }
+
+  async function grant(id) {
+    const input = window.prompt('请输入要发放的用户ID，多个用逗号分隔', '');
+    if (input === null) return;
+    const userIds = parseUserIds(input);
+    if (userIds.length === 0) { Dialog.toast('未解析到有效用户ID'); return; }
+    if (!await Dialog.confirm(`确认向 ${userIds.length} 个用户发放该券？此操作会记入操作日志。`, '发放')) return;
+    const count = await http.post('/admin-api/mkt/coupon/' + id + '/grant', userIds);
+    Dialog.toast('已发放 ' + (count ?? userIds.length) + ' 张');
+    load();
+    loadUserPage();
+  }
+
+  async function grantBatch(id) {
+    const input = window.prompt('请输入要批量发放的用户ID，多个用逗号分隔', '');
+    if (input === null) return;
+    const userIds = parseUserIds(input);
+    if (userIds.length === 0) { Dialog.toast('未解析到有效用户ID'); return; }
+    if (!await Dialog.confirm(`确认批量向 ${userIds.length} 个用户发放该券？此操作会记入操作日志。`, '批量发放')) return;
+    const count = await http.post('/admin-api/mkt/coupon/' + id + '/grant-batch', { userIds });
+    Dialog.toast('已发放 ' + (count ?? userIds.length) + ' 张');
+    load();
+    loadUserPage();
+  }
+
+  function loadUserPage() {
+    Table.render({
+      el: '#userTable',
+      url: '/admin-api/mkt/coupon/user/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'couponId', title: '券ID' },
+        { field: 'userId', title: '用户ID' },
+        { field: 'code', title: '券码' },
+        { title: '状态', render: r => {
+          const s = USER_COUPON_STATUS[r.status] || { text: '未知', cls: 'tag-gray' };
+          return `<span class="tag ${s.cls}">${s.text}</span>`;
+        } },
+        { title: '来源', render: r => COUPON_SOURCE[r.source] || (r.source ?? '-') },
+        { title: '使用时间', render: r => fmtDate(r.useTime) },
+        { title: '过期时间', render: r => fmtDate(r.expireTime) }
+      ],
+      query: () => ({ userId: document.getElementById('userId').value })
+    });
+  }
+
+  document.getElementById('searchUser').onclick = loadUserPage;
+  load();
+  loadUserPage();
+</script>
+</body>
+</html>

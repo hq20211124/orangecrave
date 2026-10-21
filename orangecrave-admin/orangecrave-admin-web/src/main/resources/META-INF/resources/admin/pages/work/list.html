@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>作品列表</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">作品列表</div>
+  <div class="filter-bar">
+    <select id="status">
+      <option value="">全部状态</option>
+      <option value="1">正常</option>
+      <option value="2">待审核</option>
+      <option value="3">待修改</option>
+      <option value="5">商品下架</option>
+      <option value="6">作品过期</option>
+      <option value="7">作品违规</option>
+    </select>
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/wms/work/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'workName', title: '作品名' },
+        { field: 'userId', title: '用户ID' },
+        { title: '状态', render: r => workStatusTag(r.status) },
+        { title: '过期时间', render: r => fmtDate(r.expireTime) },
+        { title: '创建时间', render: r => fmtDate(r.createTime) },
+        { title: '操作', render: r =>
+          `<a href="detail.html?id=${r.id}">详情</a> ` +
+          `<button class="btn-link" onclick="changeStatus(${r.id}, ${r.status})" data-perm="work:work:update">改状态</button> ` +
+          `<button class="btn-link" onclick="del(${r.id})" data-perm="work:work:delete">删除</button>` }
+      ],
+      query: () => ({ status: document.getElementById('status').value })
+    });
+  }
+
+  async function changeStatus(id, current) {
+    const input = window.prompt('请输入新的状态码（1 正常 / 2 待审核 / 3 待修改 / 5 商品下架 / 6 作品过期 / 7 作品违规）', current);
+    if (input === null) return;
+    const status = Number(input);
+    if (!WORK_STATUS[status]) { Dialog.toast('无效的状态码'); return; }
+    const remark = window.prompt('请输入状态变更备注（可留空）', '');
+    if (remark === null) return;
+    if (!await Dialog.confirm('确认将作品状态改为「' + WORK_STATUS[status].text + '」？此操作会记入操作日志。', '改状态')) return;
+    await http.put('/admin-api/wms/work/' + id + '/status', { status, remark });
+    Dialog.toast('状态已更新');
+    load();
+  }
+
+  async function del(id) {
+    if (!await Dialog.confirm('确认删除该作品？此操作会记入操作日志。', '删除作品')) return;
+    await http.del('/admin-api/wms/work/' + id);
+    Dialog.toast('已删除');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

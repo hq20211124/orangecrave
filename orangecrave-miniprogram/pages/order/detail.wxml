@@ -1,0 +1,25 @@
+<view class="container" wx:if="{{order}}">
+  <view class="card">
+    <view class="row">
+      <text style="font-weight:600;">{{order.orderNo}}</text>
+      <text class="tag">{{statusText}}</text>
+    </view>
+    <view class="row" style="margin-top:12rpx;"><text class="muted">订单类型</text><text>{{order.orderType}}</text></view>
+    <view class="row"><text class="muted">商品金额</text><text>¥{{order.totalAmount}}</text></view>
+    <view class="row"><text class="muted">运费</text><text>¥{{order.freightAmount}}</text></view>
+    <view class="row"><text class="muted">实付</text><text class="price">¥{{order.payAmount}}</text></view>
+  </view>
+
+  <view class="card">
+    <view style="font-weight:600;margin-bottom:12rpx;">生产进度</view>
+    <view class="muted" style="margin-bottom:8rpx;">已下单 → 审核通过 → 制作中 → 质检中 → 已发货 → 已完成</view>
+    <view wx:for="{{logs}}" wx:key="time" class="row" style="padding:8rpx 0;">
+      <text>{{item.text}}</text>
+      <text class="muted">{{item.time}}</text>
+    </view>
+    <view wx:if="{{!logs.length}}" class="muted">暂无流转</view>
+  </view>
+
+  <view wx:if="{{order.status === 0}}" class="btn btn-block" bindtap="pay">支付（演示）</view>
+  <view wx:if="{{order.status === 2 || order.status === 3}}" class="btn btn-plain btn-block" bindtap="goAftersale">申请售后</view>
+</view>

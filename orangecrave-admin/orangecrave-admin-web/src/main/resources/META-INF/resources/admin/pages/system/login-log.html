@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>登录日志</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">登录日志</div>
+  <div class="filter-bar">
+    <input id="keyword" placeholder="用户名">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/system/login-log/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'userName', title: '用户名' },
+        { field: 'ip', title: 'IP' },
+        { field: 'browser', title: '浏览器' },
+        { field: 'os', title: '操作系统' },
+        { title: '结果', render: r => r.status === 1
+            ? '<span class="tag tag-green">成功</span>'
+            : '<span class="tag tag-red">失败</span>' },
+        { field: 'msg', title: '消息' },
+        { title: '登录时间', render: r => fmtDate(r.loginTime) }
+      ],
+      query: () => ({ keyword: document.getElementById('keyword').value })
+    });
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

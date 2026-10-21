@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.orangecrave</groupId>
+    <artifactId>orangecrave-admin</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>orangecrave-admin</name>
+
+    <properties>
+        <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <mybatis-plus.version>3.5.5</mybatis-plus.version>
+        <sa-token.version>1.37.0</sa-token.version>
+        <aws-sdk.version>2.25.60</aws-sdk.version>
+    </properties>
+
+    <modules>
+        <module>orangecrave-common</module>
+        <module>orangecrave-system</module>
+        <module>orangecrave-user</module>
+        <module>orangecrave-goods</module>
+        <module>orangecrave-work</module>
+        <module>orangecrave-order</module>
+        <module>orangecrave-audit</module>
+        <module>orangecrave-marketing</module>
+        <module>orangecrave-service</module>
+        <module>orangecrave-finance</module>
+        <module>orangecrave-task</module>
+        <module>orangecrave-admin-api</module>
+        <module>orangecrave-admin-web</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-system</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-user</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-goods</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-work</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-order</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-audit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-marketing</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-finance</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-task</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.orangecrave</groupId>
+                <artifactId>orangecrave-admin-web</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.dev33</groupId>
+                <artifactId>sa-token-spring-boot3-starter</artifactId>
+                <version>${sa-token.version}</version>
+            </dependency>
+            <!-- Sa-Token 会话落 Redis 的参考实现。该 jar 自带一个 @Component 自动配置，
+                 会无条件要求 RedisConnectionFactory，因此应用侧在 application.yml 里
+                 spring.autoconfigure.exclude 掉它，改由 RedisConfig 按开关显式装配。 -->
+            <dependency>
+                <groupId>cn.dev33</groupId>
+                <artifactId>sa-token-redis-jackson</artifactId>
+                <version>${sa-token.version}</version>
+            </dependency>
+            <!-- 对象存储：S3 兼容协议一套实现通吃 MinIO / 阿里云 OSS / Ceph -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>s3</artifactId>
+                <version>${aws-sdk.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+</project>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>工艺管理</title>
+  <link rel="stylesheet" href="../../css/variables.css">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/page.css">
+</head>
+<body>
+<div class="page">
+  <div class="page-title">工艺管理</div>
+  <div class="filter-bar">
+    <button class="btn btn-primary" id="search">查询</button>
+  </div>
+  <div id="table"></div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/table.js"></script>
+<script src="../../js/util.js"></script>
+<script>
+  const esc = s => String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const ADD_PRICE_TYPE = { 1: '固定', 2: '按面积' };
+
+  function load() {
+    Table.render({
+      el: '#table',
+      url: '/admin-api/pms/craft/page',
+      columns: [
+        { field: 'id', title: 'ID' },
+        { field: 'craftName', title: '工艺名称' },
+        { field: 'craftType', title: '工艺类型' },
+        { title: '加价', render: r => money(r.addPrice) },
+        { title: '计价方式', render: r => ADD_PRICE_TYPE[r.addPriceType] || r.addPriceType || '-' },
+        { title: '状态', render: r => r.status === 1 ? '<span class="tag tag-green">启用</span>' : '<span class="tag tag-gray">停用</span>' },
+        { title: '操作', render: r =>
+          `<button class="btn-link" onclick="del(${r.id}, '${esc(r.craftName)}')">删除</button>` }
+      ]
+    });
+  }
+
+  async function del(id, name) {
+    if (!await Dialog.confirm(`确认删除工艺「${name}」？此操作会记入操作日志。`, '删除工艺')) return;
+    await http.del('/admin-api/pms/craft/' + id);
+    Dialog.toast('已删除');
+    load();
+  }
+
+  document.getElementById('search').onclick = load;
+  load();
+</script>
+</body>
+</html>

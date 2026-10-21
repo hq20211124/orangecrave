@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.orangecrave</groupId>
+        <artifactId>orangecrave-admin</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>orangecrave-finance</artifactId>
+    <name>orangecrave-finance</name>
+    <description>财务：对账、看板（通过自己的 Mapper 查 oms_ 表，不反向依赖 order 模块，避免循环依赖）</description>
+    <dependencies>
+        <dependency>
+            <groupId>com.orangecrave</groupId>
+            <artifactId>orangecrave-common</artifactId>
+        </dependency>
+    </dependencies>
+</project>
