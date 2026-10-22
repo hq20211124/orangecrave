@@ -91,7 +91,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - app_uploads:/app/uploads
+      # 上传文件落宿主机，便于备份；宿主目录需 chown 10001:10001（见 deploy/init-server.sh）
+      - ./data/uploads:/app/uploads
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/admin-api/health || exit 1"]
       interval: 15s
@@ -103,7 +104,6 @@ services:
 
 volumes:
   mysql_data:
-  app_uploads:
 
 networks:
   orangecrave:
