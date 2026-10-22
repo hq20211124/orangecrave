@@ -12,12 +12,15 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?请在 .env 中设置}
       MYSQL_DATABASE: orangecrave
-      MYSQL_CHARACTER_SET_SERVER: utf8mb4
-      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+      # LANG=C.UTF-8：官方镜像 init 导入时 mysql 客户端按 locale 选连接字符集，
+      # 默认 LANG=C 会按 latin1 连接，导致 UTF-8 SQL 文件双重编码乱码
+      LANG: C.UTF-8
     volumes:
       - mysql_data:/var/lib/mysql
       - ./orangecrave-admin/sql:/docker-entrypoint-initdb.d:ro
     command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
       --innodb-buffer-pool-size=128M
       --innodb-log-buffer-size=8M
       --innodb-flush-log-at-trx-commit=2
