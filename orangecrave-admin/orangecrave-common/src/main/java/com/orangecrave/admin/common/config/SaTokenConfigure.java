@@ -5,6 +5,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.orangecrave.admin.common.satoken.StpClientUtil;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -37,5 +38,13 @@ public class SaTokenConfigure implements WebMvcConfigurer {
         registry.addInterceptor(new SaInterceptor(handle -> StpClientUtil.checkLogin()))
                 .addPathPatterns("/client-api/**")
                 .excludePathPatterns(CLIENT_WHITE_LIST);
+    }
+
+    /** 后台静态页挂在 /admin/ 前缀下，但 Spring Boot 欢迎页只识别根路径 index.html，
+     *  这里补一个重定向让 /admin（不带文件名）直达登录页。 */
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        registry.addRedirectViewController("/admin", "/admin/index.html");
+        registry.addRedirectViewController("/admin/", "/admin/index.html");
     }
 }
