@@ -25,6 +25,9 @@ import java.util.concurrent.Executor;
 @RequiredArgsConstructor
 public class FinDashboardService {
 
+    /** 待发货超时告警阈值（小时）的默认值，sys_config 未配置或值非法时使用。*/
+    private static final long DEFAULT_DELIVERY_ALERT_HOURS = 72;
+
     private final DashboardMapper dashboardMapper;
 
     /** 品类排行只看近 N 天（默认 30）。*/
@@ -70,9 +73,9 @@ public class FinDashboardService {
         CompletableFuture<Integer> failedTasksF = Concurrent.supply(ioExecutor, dashboardMapper::failedTaskCount);
         // 超时单量依赖阈值配置：阈值查询与其余三条并行发出，拿到后再在同一个
         // 线程池上接着算截止时间并查单量，链式保持「无依赖的部分」仍然并行
-        CompletableFuture<Integer> overdueF = Concurrent.supply(ioExecutor, dashboardMapper::deliveryAlertHours)
-                .thenApplyAsync(hours ->
-                        dashboardMapper.overdueDeliveryCount(LocalDateTime.now().minusHours(hours)), ioExecutor);
+        CompletableFuture<Integer> overdueF = Concurrent.supply(ioExecutor, dashboardMapper::deliveryAlertHoursRaw)
+                .thenApplyAsync(raw -> dashboardMapper.overdueDeliveryCount(
+                        LocalDateTime.now().minusHours(parseHours(raw))), ioExecutor);
 
         Map<Integer, Long> byStatus = new HashMap<>();
         for (Map<String, Object> row : Concurrent.join(statusCountsF)) {
@@ -96,5 +99,19 @@ public class FinDashboardService {
 
     private BigDecimal nz(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    /** sys_config 里的 pendingDeliveryHours 是 varchar，这里解析；缺省/脏数据都回落到 72 小时，
+     *  不让一条配错的参数把整个看板打断。*/
+    static long parseHours(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return DEFAULT_DELIVERY_ALERT_HOURS;
+        }
+        try {
+            long hours = Long.parseLong(raw.trim());
+            return hours > 0 ? hours : DEFAULT_DELIVERY_ALERT_HOURS;
+        } catch (NumberFormatException e) {
+            return DEFAULT_DELIVERY_ALERT_HOURS;
+        }
     }
 }

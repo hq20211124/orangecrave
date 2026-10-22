@@ -35,14 +35,16 @@ public interface DashboardMapper {
     int failedTaskCount();
 
     /**
-     * 待发货超时阈值（小时）：sys_config pendingDeliveryHours，缺省 72。
-     * 与 ORDER_DELIVERY_ALERT 用同一个系统参数（00 篇 §5「超时只告警」）。 */
-    @Select("SELECT COALESCE(MAX(CAST(c.config_value AS BIGINT)), 72) FROM sys_config c "
+     * 待发货超时阈值（小时）：sys_config pendingDeliveryHours，缺省由 Service 侧兜底。
+     * 与 ORDER_DELIVERY_ALERT 用同一个系统参数（00 篇 §5「超时只告警」）。
+     * 返回原始字符串、由 Service 解析为数值：config_value 是 varchar，
+     * CAST(... AS BIGINT) 只有 H2 认，MySQL 会报语法错误（需 AS SIGNED），故不在 SQL 里转。 */
+    @Select("SELECT MAX(c.config_value) FROM sys_config c "
             + "WHERE c.config_key = 'pendingDeliveryHours' AND c.deleted = 0")
-    long deliveryAlertHours();
+    String deliveryAlertHoursRaw();
 
     /**
-     * 待发货超时单量。截止时间由 Java 侧按 {@link #deliveryAlertHours()} 算好传入
+     * 待发货超时单量。截止时间由 Java 侧按 {@link #deliveryAlertHoursRaw()} 算好传入
      * （DATE_SUB + INTERVAL 是 MySQL 方言，H2 跑不了）。 */
     @Select("SELECT COUNT(*) FROM oms_order o WHERE o.deleted = 0 AND o.status = 6 "
             + "AND o.update_time < #{cutoff}")
