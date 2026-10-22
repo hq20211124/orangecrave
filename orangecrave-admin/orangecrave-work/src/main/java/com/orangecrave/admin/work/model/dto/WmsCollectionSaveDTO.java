@@ -23,7 +23,7 @@ public class WmsCollectionSaveDTO {
     private String coverUrl;
     /** 0 停用 / 1 正常，与作品同一套状态口径 */
     private Integer status;
-    /** 2–10 个作品成组（见 01 篇 §4） */
+    /** 2–10 个作品成组（01 篇 §4） */
     @NotNull(message = "请选择合集内的作品")
     private List<Long> workIds;
 }

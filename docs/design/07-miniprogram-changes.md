@@ -76,6 +76,8 @@ POST /api/auth/wx-login  { code }
 后续请求头：Authorization: Bearer <token>
 ```
 
+与顾客端风格一致。
+
 ### 3.2 响应信封
 
 ```json
@@ -106,6 +108,9 @@ const ORDER_STATUS = {
   11: { text: '已退款',   color: '#8E8E93' }
 };
 ```
+
+> **★ 标记的两个状态是后台特有的**：原顾客端只区分「待发货 / 已发货 / 已完成」，而自印业务中用户最焦虑的恰恰是「我的卡做到哪了」。
+>
 
 ### 3.4 生产进度的展示
 
@@ -157,6 +162,7 @@ MES 的细粒度术语（「已上机裱纸」）**不透传给用户**，由后
 首次进入时上报来源，后续下单携带 `channelId`：
 
 ```js
+// 参照原版：shop/xhs/visit 用于小红书渠道归因
 POST /api/channel/visit { channelCode: 'xhs' }
 ```
 
@@ -205,6 +211,8 @@ const ENV = {
 | 我的订单 | `GET /client-api/oms/order/mine` | 02 §2.13 |
 | 订单详情 + 时间线 | `GET /client-api/oms/order/{id}/timeline` | 02 §2.13 |
 | 申请售后 | `POST /client-api/oms/aftersale/apply` | 02 §2.13 |
+
+> 顾客端接口已补入 `02-api.md` §2.13（`/client-api/` 前缀）。它们与后台接口是**同一套业务规则与数据模型**，只是调用方身份、可见字段、可执行动作不同；实现以各模块下的 `client/` 分组承载，**不复制业务逻辑**。
 
 ---
 

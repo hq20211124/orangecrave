@@ -19,7 +19,7 @@ public class SensitiveWordCheckerImpl implements SensitiveWordChecker {
         if (hit == null) {
             return text;
         }
-        // 提示文案带上违规词，顾客才知道要改什么（见 01 篇 aud_sensitive_word）
+        // 提示文案带上违规词，顾客才知道要改什么（01 篇 aud_sensitive_word）
         if ("拒绝".equals(hit.getAction())) {
             throw new BizException("内容包含违规词「" + hit.getWord() + "」，请修改后重新提交");
         }

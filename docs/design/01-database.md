@@ -1,4 +1,4 @@
-﻿# 01 · 数据库设计
+# 01 · 数据库设计
 
 MySQL 8.0，utf8mb4。所有表使用 InnoDB。
 
@@ -98,6 +98,8 @@ MySQL 8.0，utf8mb4。所有表使用 InnoDB。
 | `config_type` | tinyint | 0 内置 / 1 可改 |
 | `remark` | varchar(255) | |
 
+> 顾客端已有同名机制（`sys/selectParamsConfigByKey`，key 如 `freeShareConfig` / `enableMyWork` / `batchCustom`）。后台做成可视化编辑页。
+
 **必须落库的参数**：待付款超时分钟数、拼团默认人数、拼团默认时长、退款窗口小时数、自动确认收货天数、分享码默认有效期、无料分享起订量规则、模拟成团开关、满额包邮阈值、基础邮费。
 
 ### sys_idempotency 幂等记录
@@ -157,6 +159,8 @@ MySQL 8.0，utf8mb4。所有表使用 InnoDB。
 ### sys_channel 渠道
 
 `channel_name`（如「小红书」「自然流量」）/ `channel_code` / `status`。
+
+> `shop/xhs/visit`、`shop/xhs/order` 端点存在，说明有小红书流量与订单归因。
 
 ---
 
@@ -241,6 +245,8 @@ pms_series（系列/IP主题）→ pms_category（品类）→ pms_spu（商品�
 | `free_threshold` | decimal(12,2) | **满额包邮阈值** |
 | `region_rules` | json | 偏远地区加价 |
 
+> 现有规则：基础邮费 4 元/单，**满 28 元减 4 元运费**。默认模板照此配置。
+
 ### pms_designer 画师
 
 `designer_name` / `avatar` / `intro` / `status`。
@@ -305,6 +311,8 @@ pms_series（系列/IP主题）→ pms_category（品类）→ pms_spu（商品�
 
 `wms_collection_item`：`collection_id` / `work_id`。
 
+> 合集规则：**2–10 个作品**成组（「至少选中两个」「最多选中10个」），且**需合并下单**（「合集需合并下单」「合集可单个下单」两种模式）。
+
 ### wms_share_code 分享码
 
 | 字段 | 类型 | 说明 |
@@ -344,6 +352,7 @@ pms_series（系列/IP主题）→ pms_category（品类）→ pms_spu（商品�
 
 - **打样 = 用户自己印一份看实物效果**
 - **是发放分享码的前置条件**
+- 打样券发放给通过认证的团长/摊主
 
 ---
 
@@ -443,6 +452,8 @@ pms_series（系列/IP主题）→ pms_category（品类）→ pms_spu（商品�
 
 **索引**：`idx_delivery_no`（查物流用）。
 
+> 顾客端有「超时未取件 / 地址不详等个人原因造成的快递退回需补邮费后重新寄出」的规则，`status = 3` 覆盖此场景。
+
 ### 5.5 oms_aftersale 售后
 
 | 字段 | 类型 | 说明 |
@@ -471,6 +482,8 @@ pms_series（系列/IP主题）→ pms_category（品类）→ pms_spu（商品�
 | `status` | tinyint | 1 待审 / 2 已开 / 3 驳回 / 4 已取消 |
 | `file_url` | varchar(255) | 电子发票文件 |
 
+> 顾客端有完整开票功能（申请 / 列表 / 记录 / 详情），**必须进 v1**——这是已上线的对外承诺。
+
 ### 5.7 oms_order_status_log 状态流转日志
 
 `order_id` / `from_status` / `to_status` / `operator_type`（系统/管理员/用户）/ `operator_id` / `remark` / `create_time`。
@@ -493,6 +506,8 @@ pms_series（系列/IP主题）→ pms_category（品类）→ pms_spu（商品�
 | `manual_result` | tinyint | 1 通过 / 2 驳回 |
 | `audit_user_id` / `audit_time` / `audit_remark` | | |
 
+> 顾客端已有 `file/auditImg` 端点，会返回审核不通过结论及命中的违规关键词；后台侧提示文案自拟（见 05 篇 §2）。
+
 ### aud_blacklist 违规图库
 
 | 字段 | 类型 | 说明 |
@@ -507,6 +522,8 @@ pms_series（系列/IP主题）→ pms_category（品类）→ pms_spu（商品�
 ### aud_sensitive_word 敏感词
 
 `word` / `category` / `action`（替换 / 拒绝）/ `status`。
+
+> 顾客端文本审核会提示命中的违规关键词，要求修改后重新提交。
 
 ### aud_copyright_promise 版权承诺
 

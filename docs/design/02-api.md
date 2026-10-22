@@ -1,4 +1,4 @@
-﻿# 02 · 接口设计
+# 02 · 接口设计
 
 ## 1. 通用规范
 
@@ -13,6 +13,8 @@ v1 不引入 URL 版本号；破坏性变更通过新增 action 名而非改旧�
 另有一个不带权限的探活端点 `GET /admin-api/health`（返回 `{"code":0,"data":"UP"}`），供部署健康检查与本地启动验证用，不属于业务接口。
 
 ### 1.2 统一响应体
+
+与顾客端保持一致：
 
 ```json
 {
@@ -33,6 +35,8 @@ v1 不引入 URL 版本号；破坏性变更通过新增 action 名而非改旧�
 | 1001–1099 | 业务校验失败 | 弹出 `msg` |
 | 2001–2099 | 订单相关错误 | 按业务处理 |
 | 3001–3099 | 审核相关错误 | 按业务处理 |
+
+> **保留 `code = 1000` 语义**：顾客端用 1000 表示刷新 token。后台 v1 不需要，但**不占用该值**，避免将来两端合并时冲突。
 
 ### 1.3 分页
 
@@ -140,6 +144,8 @@ Sa-Token 自定义 token 读取名以适配【见 00 篇 4.1】。
 | GET | `/admin-api/system/config/{key}` | 按 key 取值 |
 | ✱ PUT | `/admin-api/system/config` | 修改（记快照） |
 | ✱ PUT | `/admin-api/system/config/batch` | 批量修改 |
+
+> 顾客端已有 `sys/selectParamsConfigByKey` 机制，后台此项与之对齐。
 
 **日志**
 
@@ -319,6 +325,7 @@ Sa-Token 自定义 token 读取名以适配【见 00 篇 4.1】。
 |---|---|---|
 | GET | `/admin-api/oms/aftersale/page` | 分页 |
 | GET | `/admin-api/oms/aftersale/{id}` | 详情 |
+| POST | `/admin-api/oms/aftersale/apply` | **客服代客申请售后**（与顾客端同规则：退款窗口、按明细行） |
 | ✱ POST | `/admin-api/oms/aftersale/{id}/approve` | 通过 → 触发退款 |
 | ✱ POST | `/admin-api/oms/aftersale/{id}/reject` | 驳回 |
 | ✱ POST | `/admin-api/oms/order/{id}/force-refund` | **强制退款申请**：body `{"amount": 10.00, "reason": "…"}`，只写一条 `review_status=1` 的退款流水并返回**流水 id**，钱不动、订单状态不动 |
@@ -341,6 +348,7 @@ Sa-Token 自定义 token 读取名以适配【见 00 篇 4.1】。
 |---|---|---|
 | GET | `/admin-api/aud/image/page` | **待审图片队列**（自动拦截后的剩余） |
 | GET | `/admin-api/aud/image/{id}` | 详情（含原图、自动审核结果） |
+| POST | `/admin-api/aud/image/check` | 单图送审（pHash 黑名单 + 机器审核，与顾客端上传即审同一实现） |
 | ✱ POST | `/admin-api/aud/image/{id}/approve` | 放行 |
 | ✱ POST | `/admin-api/aud/image/{id}/reject` | 驳回 |
 | POST | `/admin-api/aud/image/batch-audit` | 批量审核 |
@@ -408,6 +416,8 @@ Sa-Token 自定义 token 读取名以适配【见 00 篇 4.1】。
 | ✱ POST | `/admin-api/mkt/coupon/{id}/grant-batch` | 批量发放 |
 | GET | `/admin-api/mkt/coupon/user/page` | 用户持券与核销记录 |
 
+> 领券中心属顾客端页面，后台 v1 只做发放与核销管理。
+
 **邀请好友**
 
 | 方法 | 路径 |
@@ -458,6 +468,8 @@ Sa-Token 自定义 token 读取名以适配【见 00 篇 4.1】。
 | GET | `/admin-api/tsk/delay-log/page` | 延迟任务执行日志 |
 | POST | `/admin-api/tsk/delay-log/{id}/retry` | **手动重试失败任务** |
 | POST | `/admin-api/tsk/scan/trigger` | **手动触发兜底扫描**（排查用） |
+
+### 2.13 顾客端 `client`
 
 > 小程序演示版所需接口。与后台接口**同源同规则、不同视角与权限**。调用方为**小程序用户**，只能操作自己的数据。前缀 `/client-api/{module}/{action}`，响应体与错误码与后台一致（见 §1）。
 
@@ -529,8 +541,12 @@ Sa-Token 自定义 token 读取名以适配【见 00 篇 4.1】。
 
 ---
 
+## 4. 需与顾客端风格统一的三点
+
+| 项 | 顾客端 | 后台 v1 |
 |---|---|---|
 | 认证头 | `Authorization: Bearer <token>` | **同左** |
 | 响应体 | `{code, msg, data}`，`0` 成功 | **同左** |
 | 401 语义 | 重新登录 | **同左** |
 
+**不同**：顾客端另有 `code=1000`（刷新 token），后台 v1 保留该值不占用。

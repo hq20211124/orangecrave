@@ -1,4 +1,4 @@
-﻿# 橙刻定制 · 后台管理系统设计文档
+# 橙刻定制 · 后台管理系统设计文档
 
 # 00 · 总览
 
@@ -113,8 +113,34 @@ Sa-Token 通过 `SaTokenConfig` 自定义 token 读取名，改为从 `Authoriza
 
 ### 5.1 为什么不用 `@Scheduled` 扫描
 
+初版曾设计「`@Scheduled` 每 60 秒扫全表」，**经真实源码核对后放弃**：
+
 - 有最多 60 秒的延迟误差
 - 全表轮询，随订单表增长而变慢
+- 真实项目不这么做（见下）
+
+### 5.2 业界实际做法
+
+**开源电商项目** 用的是 **JDK `DelayQueue` + 启动重建**：
+
+```java
+// TaskService.java
+private DelayQueue<Task> delayQueue = new DelayQueue<Task>();
+Executors.newSingleThreadExecutor().execute(() -> {
+    while (true) { delayQueue.take().run(); }
+});
+
+// TaskStartupRunner.java —— 关键：启动时从 DB 重建队列
+List<开源电商项目Order> orderList = orderService.queryUnpaid(SystemConfig.getOrderUnpaid());
+for (开源电商项目Order order : orderList) {
+    long delay = expire.isBefore(now) ? 0 : ChronoUnit.MILLIS.between(now, expire);
+    taskService.addTask(new OrderUnpaidTask(order.getId(), delay));
+}
+```
+
+它按**精度需求分流**：要精确的（未付款、拼团）走 DelayQueue；粗粒度的（自动确认收货、超期不可评价）走 `@Scheduled(cron = "0 0 3 * * ?")`，误差一天无所谓——作者在注释里明确承认了扫描的精度问题。
+
+**macrozheng/mall** 展示了迁移路径：其 `OrderTimeOutCancelTask` 的 `@Component` **被注释掉了**，改用 RabbitMQ TTL + 死信队列（`x-dead-letter-exchange`），消费端 `CancelOrderReceiver` 监听 `mall.order.cancel`。
 
 ### 5.3 本设计的选择：三层
 
@@ -124,7 +150,11 @@ Sa-Token 通过 `SaTokenConfig` 自定义 token 读取名，改为从 `Authoriza
 ③ 低频兜底扫描        @Scheduled 每 5 分钟，补静默丢失的任务
 ```
 
+**第 ③ 层是本设计比参照项目多出的一层**，原因：开源电商项目 的 `TaskService` 中 `task.run()` 仅被 `catch { printStackTrace() }` 包裹——**执行失败的任务会被静默丢弃，要等下次重启才被重建器捡回**。对「未付款取消」而言，这意味着订单可能一直挂着，库存与优惠券不释放。兜底扫描专门堵这个洞。
+
 **可靠性契约**：每新增一类延迟任务，必须同时提供 ① 注册点 ③ 兜底扫描查询。二者缺一，该类任务就不具备可恢复性。
+
+### 5.4 并发与幂等
 
 绝不「先查再改」。统一用**带状态条件的 UPDATE 并检查影响行数**：
 
@@ -137,6 +167,8 @@ WHERE id = ? AND status = '待付款';
 - **重复取消**：第二次匹配 0 行，自然无操作
 - **取消 vs 支付回调竞态**：支付回调执行 `UPDATE ... SET status='已支付' WHERE id=? AND status='待付款'`，先提交者赢；输的一方拿到 0 行，走退款或放弃分支
 - **状态机本身就是并发控制**，无需额外行锁
+
+开源电商项目 用等价的乐观锁（`updateWithOptimisticLocker`，失败抛异常）实现同一目的。本设计选状态守卫，更直白；如需也可加 MyBatis-Plus 的 `@Version`。
 
 ### 5.5 迁移路径
 

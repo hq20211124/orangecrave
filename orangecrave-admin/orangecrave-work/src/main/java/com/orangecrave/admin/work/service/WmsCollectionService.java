@@ -27,7 +27,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class WmsCollectionService {
 
-    /** 合集成组上下限（见 01 篇 §4：「至少选中两个」「最多选中10个」） */
+    /** 合集成组上下限（01 篇 §4：「至少选中两个」「最多选中10个」） */
     static final int MIN_WORKS = 2;
     static final int MAX_WORKS = 10;
 

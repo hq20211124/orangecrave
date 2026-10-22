@@ -66,8 +66,14 @@ management:
     health:
       show-details: when_authorized
 
-# 日志只走 stdout，由容器运行时接管（docker compose logs），避免容器内目录权限问题
 logging:
   level:
     root: info
     com.orangecrave: info
+  file:
+    name: /app/logs/orangecrave.log
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB
+      max-history: 7
+      total-size-cap: 500MB

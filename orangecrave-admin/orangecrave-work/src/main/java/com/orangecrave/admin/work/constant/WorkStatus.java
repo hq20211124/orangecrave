@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 作品状态（见 05 篇 §3）。  */
+ * 作品状态（见 05 篇 §3，来自线上 workStatus 映射）。1 正常为【推断】。  */
 public final class WorkStatus {
 
     private WorkStatus() {
