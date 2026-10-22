@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 # 服务器一键初始化脚本。在华为云服务器上执行：
 #   curl -fsSL https://raw.githubusercontent.com/<your-repo>/master/deploy/init-server.sh | bash
 # 或者先上传再执行：bash deploy/init-server.sh
@@ -11,6 +11,9 @@
 #   4. 访问 http://<服务器IP>:8080/admin/ 进入后台
 
 set -euo pipefail
+
+# 无论从哪个目录调用，都切到仓库根（compose 文件所在目录）
+cd "$(dirname "$0")/.."
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -39,14 +42,21 @@ if command -v docker &> /dev/null; then
 else
     log_info "安装 Docker..."
     if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
-        apt-get update
-        apt-get install -y ca-certificates curl gnupg
-        install -m 0755 -d /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/$OS/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-        chmod a+r /etc/apt/keyrings/docker.gpg
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$OS $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-        apt-get update
-        apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+        # 国内服务器直连 download.docker.com 常被阻断，优先用发行版仓库（走国内 apt 源）
+        if apt-get install -y docker.io docker-compose-v2; then
+            log_info "已从发行版仓库安装 docker.io"
+        else
+            log_warn "发行版仓库安装失败，回退官方仓库"
+            apt-get update
+            apt-get install -y ca-certificates curl gnupg
+            install -m 0755 -d /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/$OS/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            chmod a+r /etc/apt/keyrings/docker.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$OS $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+            apt-get update
+            apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+        fi
+        systemctl enable --now docker
     elif [ "$OS" = "centos" ] || [ "$OS" = "rhel" ]; then
         yum install -y yum-utils
         yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
@@ -60,15 +70,15 @@ else
     log_info "Docker 安装完成: $(docker --version)"
 fi
 
-# 配置 Docker 镜像加速（华为云）
+# 配置镜像加速（国内直连 Docker Hub 不通，必须配）
 log_info "配置 Docker 镜像加速..."
 mkdir -p /etc/docker
 cat > /etc/docker/daemon.json <<'EOF'
 {
   "registry-mirrors": [
-    "https://mirror.ccs.tencentyun.com",
-    "https://docker.mirrors.ustc.edu.cn",
-    "https://hub-mirror.c.163.com"
+    "https://docker.m.daocloud.io",
+    "https://docker.1panel.live",
+    "https://dockerproxy.net"
   ],
   "log-driver": "json-file",
   "log-opts": {
@@ -118,6 +128,11 @@ cat > .env <<EOF
 DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
 EOF
 log_info "数据库密码已生成（保存在 .env 中）"
+
+# 上传目录授权给容器内非 root 用户（UID 10001，见 Dockerfile）
+log_info "准备上传目录..."
+mkdir -p data/uploads
+chown -R 10001:10001 data/uploads
 
 # ---------- 6. 启动服务 ----------
 log_info "构建并启动服务..."
