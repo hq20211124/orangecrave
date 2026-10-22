@@ -20,7 +20,9 @@ public class SecurityHeaderFilter implements Filter {
             throws IOException, ServletException {
         HttpServletResponse resp = (HttpServletResponse) response;
         resp.setHeader("X-Content-Type-Options", "nosniff");
-        resp.setHeader("X-Frame-Options", "DENY");
+        // 后台是 iframe 布局（layout.html 内嵌 pages/*），DENY 会让同源页面也拒绝渲染，
+        // 故用 SAMEORIGIN：既能防外站点击劫持，又允许自身嵌套。
+        resp.setHeader("X-Frame-Options", "SAMEORIGIN");
         resp.setHeader("X-XSS-Protection", "1; mode=block");
         resp.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
         chain.doFilter(request, response);

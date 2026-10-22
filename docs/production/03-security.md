@@ -221,7 +221,8 @@ public class SecurityHeaderFilter implements Filter {
             throws IOException, ServletException {
         HttpServletResponse resp = (HttpServletResponse) response;
         resp.setHeader("X-Content-Type-Options", "nosniff");
-        resp.setHeader("X-Frame-Options", "DENY");
+        // 后台是 iframe 布局（layout.html 内嵌 pages/*），DENY 会导致同源页面也拒绝渲染
+        resp.setHeader("X-Frame-Options", "SAMEORIGIN");
         resp.setHeader("X-XSS-Protection", "1; mode=block");
         resp.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
         resp.setHeader("Content-Security-Policy", "default-src 'self'");
