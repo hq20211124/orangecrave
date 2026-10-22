@@ -50,7 +50,8 @@ jobs:
             set -e
             cd /opt/orangecrave
             echo ">>> 拉取最新代码"
-            git pull origin master
+            git fetch --depth=50 origin master
+            git reset --hard origin/master
             echo ">>> 构建并重启容器"
             docker compose -f docker-compose.prod.yml up -d --build
             echo ">>> 清理旧镜像"
@@ -65,6 +66,6 @@ jobs:
             done
             echo ">>> 健康检查失败，回滚"
             docker compose -f docker-compose.prod.yml down
-            git checkout HEAD~1
+            git reset --hard HEAD~1
             docker compose -f docker-compose.prod.yml up -d --build
             exit 1
